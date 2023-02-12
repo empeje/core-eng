@@ -1,60 +1,59 @@
-import datetime
-
-import click
 import requests
 import tqdm
 
 
-def fetch_utxos(address, utxo_fetch_limit):
-    utxos = []
+def fetch_utxo_id_list_for_address(address, args):
+    utxo_fetch_limit = args.utxo_fetch_limit
+    utxo_list = []
     skip = 0
     amount = 0
-    request_limit = 5_000
+    request_limit = min(5_000, utxo_fetch_limit)
     count = 0
-    with tqdm.tqdm(total=utxo_fetch_limit, desc=f'Fetching UTXOs from the Bitgo API {utxo_fetch_limit=:,}') as bar:
+    # How to get the # of utxo's? total=utxo_fetch_limit
+    with tqdm.tqdm() as bar:
         while True:
-            # click.echo(f'request {skip=:,} {limit=:,}')
-            url = f'https://www.bitgo.com/api/v1/address/{address}/unspents?limit={request_limit}&skip={skip}'
-            # click.echo(url)
-            res = requests.get(url)
-            if not res.ok:
+            request_url = f'https://www.bitgo.com/api/v1/address/{address}/unspents?limit={request_limit}&skip={skip}'
+            resp = requests.get(request_url)
+            if not resp.ok:
                 if request_limit > 1:
                     request_limit = request_limit // 2
                     continue
                 else:
                     # click.echo(f'Failed to fetch all utxos: {res.json()}')
-                    raise Exception(f'Failed to fetch all utxos: {res.json()}')
+                    raise Exception(f'Failed to fetch all utxos: {resp.json()}')
 
-            res_json = res.json()
-            skip = res_json['start'] + res_json['count']
+            resp_json = resp.json()
+            skip = resp_json['start'] + resp_json['count']
 
-            for utxo in res_json['unspents']:
-                amount += utxo['value']
-                utxos.append({
-                    'address': utxo['address'],
-                    'txid': utxo['tx_hash'],
-                    'confirmations': utxo['confirmations'],
-                    'output_n': utxo['tx_output_n'],
+            for resp_utxo in resp_json['unspents']:
+                amount += resp_utxo['value']
+                utxo = {
+                    'address': resp_utxo['address'],
+                    'txid': resp_utxo['tx_hash'],
+                    'confirmations': resp_utxo['confirmations'],
+                    'output_n': resp_utxo['tx_output_n'],
                     'input_n': 0,
-                    'block_height': int(utxo['blockHeight']) if utxo['blockHeight'] else None,
+                    'block_height': int(resp_utxo['blockHeight']) if resp_utxo['blockHeight'] else None,
                     'fee': None,
                     'size': 0,
-                    'value': utxo['value'],
-                    'script': utxo['script'],
+                    'value': resp_utxo['value'],
+                    'script': resp_utxo['script'],
                     # 'date': datetime.datetime.strptime(utxo['date'], "%Y-%m-%dT%H:%M:%S.%fZ")
-                })
+                }
+                utxo_list.append(utxo)
 
-            new_count = len(utxos)
-            if new_count > count:
-                bar.set_description(f'Fetched {len(utxos):,} UTXOs from the BitGo API {amount=:,}')
-                bar.update(new_count-count)
+            break_loop = len(utxo_list) >= utxo_fetch_limit or resp_json['count'] < request_limit
+            new_count = len(utxo_list)
+            if break_loop or new_count > count:
+                bar.set_description(f'Fetched {len(utxo_list):,} UTXOs from the BitGo API with total {amount:,} sats')
+                bar.update(new_count - count)
                 count = new_count
-
-            if len(utxos) >= utxo_fetch_limit or res_json['count'] < request_limit:
+            if break_loop:
                 break
 
-    utxos = utxos[:utxo_fetch_limit]
-    return utxos
+
+    utxo_list = utxo_list[:utxo_fetch_limit]
+    return utxo_list
 
 
 '''

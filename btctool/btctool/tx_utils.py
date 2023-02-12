@@ -1,40 +1,33 @@
-import decimal
 import multiprocessing
 import time
 
 import requests
 import tqdm
-import trezorlib
-import trezorlib.btc
+from trezorlib import btc, messages, tools
 
 import utils
 
+
 # the following script type mapping is only valid for single-sig Trezor-generated utxos
 BITCOIN_CORE_INPUT_TYPES = {
-    "pubkeyhash": trezorlib.messages.InputScriptType.SPENDADDRESS,
-    "scripthash": trezorlib.messages.InputScriptType.SPENDP2SHWITNESS,
-    "witness_v0_keyhash": trezorlib.messages.InputScriptType.SPENDWITNESS,
-    "witness_v1_taproot": trezorlib.messages.InputScriptType.SPENDTAPROOT,
+    "pubkeyhash": messages.InputScriptType.SPENDADDRESS,
+    "scripthash": messages.InputScriptType.SPENDP2SHWITNESS,
+    "witness_v0_keyhash": messages.InputScriptType.SPENDWITNESS,
+    "witness_v1_taproot": messages.InputScriptType.SPENDTAPROOT,
 }
-
-
-def get_session():
-    session = requests.Session()
-    session.headers.update({"User-Agent": "trezorlib"})
-    return session
 
 
 class RateLimitException(Exception):
     pass
 
 
-def get_outputs(address, amount):
+def get_outputs(address, amount, args):
     outputs = []
     address_n = None
-    script_type = trezorlib.messages.OutputScriptType.PAYTOP2SHWITNESS
+    script_type = messages.OutputScriptType.PAYTOADDRESS
 
     outputs.append(
-        trezorlib.messages.TxOutputType(
+        messages.TxOutputType(
             amount=amount,
             address_n=address_n,
             address=address,
@@ -45,42 +38,55 @@ def get_outputs(address, amount):
     return outputs
 
 
-def hydrate_utxo_data(utxo_data, hd_path):
-    utxo = utxo_data['utxo']
-    tx_json = utxo_data['tx_json']
-    utxo_hash = bytes.fromhex(utxo['txid'])
-    txhash = utxo_hash.hex()
-    tx = trezorlib.btc.from_json(tx_json)
-    amount = utxo['value']
-    address_n = trezorlib.tools.parse_path(hd_path)
-    utxo_index = int(utxo['output_n'])
-    reported_type = tx_json["vout"][utxo_index]["scriptPubKey"]["type"]
+def build_tx_input_dict(utxo_id, utxo_tx, args):
+    utxo_txid = bytes.fromhex(utxo_id['txid'])
+    address_n = tools.parse_path(args.input_path)
+    utxo_index = int(utxo_id['output_n'])
+    amount = utxo_id['value']
+    reported_type = utxo_tx["vout"][utxo_index]["scriptPubKey"]["type"]
+    # print(utxo_tx["vout"][utxo_index])
+    # print(utxo_id['value'] == utxo_tx["vout"][utxo_index]['value'])
+    # raise SystemExit
+    # # import json
+    # click.echo(json.dumps(tx_dict, indent=4))
+    # click.echo((address_n, args.spend_path))
+    # click.echo(json.dumps(utxo_id, indent=2))
+    # click.echo(json.dumps(utxo_tx["vout"][utxo_index], indent=2))
+    # click.echo({'asm': utxo_tx["vout"][utxo_index]["scriptPubKey"]["asm"], 'type': reported_type})
+    # raise Exception
     script_type = BITCOIN_CORE_INPUT_TYPES[reported_type]
     sequence = 0xFFFFFFFD
 
-    new_input = trezorlib.messages.TxInputType(
+    tx_input = messages.TxInputType(
         address_n=address_n,
-        prev_hash=utxo_hash,
+        prev_hash=utxo_txid,
         prev_index=utxo_index,
         amount=amount,
         script_type=script_type,
         sequence=sequence,
     )
 
-    utxo_data.update({'input': new_input, 'tx': tx, 'txhash': txhash})
-
-def fetch_utxo_transaction(utxo, request_url):
-    utxo_txid = bytes.fromhex(utxo['txid'])
     txhash = utxo_txid.hex()
-    request_url = f'{request_url}/{txhash}'
-    r = get_session().get(request_url, timeout=1)
-    if not r.ok:
+    tx = btc.from_json(utxo_tx)
+    return {'tx_input': tx_input, 'txhash': txhash, 'tx': tx}
+
+
+def fetch_utxo_dict(utxo_id, request_url):
+    utxo_txid = bytes.fromhex(utxo_id['txid'])
+    tx_hash = utxo_txid.hex()
+    request_url = f'{request_url}/{tx_hash}'
+    session = requests.Session()
+    session.headers.update({"User-Agent": "trezorlib"})
+    response = session.get(request_url, timeout=1)
+    if not response.ok:
         # raise Exception(tx_url, r.content)
         # click.echo(f'Got HTTP status code {r.status_code} for {tx_url=}')
-        raise RateLimitException(request_url, r.content)
+        raise RateLimitException(request_url, response.content)
 
-    tx_json = r.json(parse_float=decimal.Decimal)
-    return {'utxo': utxo, 'tx_json': tx_json}
+    utxo_tx = response.json(parse_float=str)
+    # for vo in utxo_tx['vout']:
+    #     vo['value'] = int(decimal.Decimal(vo['value']) * 100_000_000)
+    return {'utxo_id': utxo_id, 'utxo_tx': utxo_tx}
 
 
 @utils.ignore_keyboard_interrupt
@@ -95,31 +101,31 @@ def request_worker(queue, result_list, error_list, worker_index):
     while True:
         utxo = queue.get()
         try:
-            result_list.append(fetch_utxo_transaction(utxo, request_url))
+            result_list.append(fetch_utxo_dict(utxo, request_url))
             timeout_secs = min_timeout_secs
             time.sleep(timeout_secs)
         # except RateLimitException as ex:
         except Exception as ex:
             queue.put(utxo)
             error_list.append(ex)
-            timeout_secs = min(max_timeout_secs, 2*timeout_secs)
+            timeout_secs = min(max_timeout_secs, 2 * timeout_secs)
             time.sleep(timeout_secs)
         finally:
             queue.task_done()
 
 
-def fetch_utxo_transactions(utxos):
+def fetch_utxo_dict_list(utxo_id_list):
     manager = multiprocessing.Manager()
     queue = manager.Queue()
-    result_list = manager.list()
+    utxo_tx_list = manager.list()
     error_list = manager.list()
     procs = []
 
     for worker_index in range(1, 6):
-        proc = multiprocessing.Process(target=request_worker, args=[queue, result_list, error_list, worker_index])
+        proc = multiprocessing.Process(target=request_worker, args=[queue, utxo_tx_list, error_list, worker_index])
         procs.append(proc)
 
-    for utxo in utxos:
+    for utxo in utxo_id_list:
         queue.put(utxo)
 
     for proc in procs:
@@ -127,27 +133,60 @@ def fetch_utxo_transactions(utxos):
 
     result_count = 0
     error_count = 0
-    with tqdm.tqdm(total=len(utxos), desc=f'Fetching {len(utxos):,} transactions from the Trezor API') as bar:
-        while queue.qsize():
-            new_result_count = len(result_list)
+    with tqdm.tqdm(total=len(utxo_id_list)) as bar:
+        while True:
+            queue_empty = queue.empty()
+            if queue_empty:
+                queue.join()
+            new_result_count = len(utxo_tx_list)
             new_error_count = len(error_list)
-            if new_result_count > result_count or new_error_count > error_count:
-                bar.set_description(f'Fetched {result_count:,} transactions from the Trezor API (errors: {len(error_list):,})')
-                bar.update(new_result_count-result_count)
+            if queue_empty or new_result_count > result_count or new_error_count > error_count:
+                bar.set_description(
+                    f'Fetched {new_result_count:,} transactions from the Trezor API (error retries: {len(error_list):,})')
+                bar.update(new_result_count - result_count)
                 result_count = new_result_count
                 error_count = new_error_count
-            time.sleep(0.1)
+                time.sleep(0.1)
+            if queue_empty:
+                break
 
     bar.close()
-    queue.join()
 
     for proc in procs:
         proc.terminate()
 
-    return list(result_list)
+    return list(utxo_tx_list)
 
 
 '''
+def sign_tx(trezor_tx):
+    trezor_client = client.get_default_client()
+    data = trezor_tx
+    coin = data["coin_name"]
+    details = data.get("details", {})
+    inputs = [
+        protobuf.dict_to_proto(messages.TxInputType, i) for i in data.get("inputs", ())
+    ]
+    outputs = [
+        protobuf.dict_to_proto(messages.TxOutputType, output)
+        for output in data.get("outputs", ())
+    ]
+    prev_txes = {
+        bytes.fromhex(txid): protobuf.dict_to_proto(messages.TransactionType, tx)
+        for txid, tx in data.get("prev_txes", {}).items()
+    }
+
+    _, serialized_tx = btc.sign_tx(
+        trezor_client,
+        coin,
+        inputs,
+        outputs,
+        prev_txes=prev_txes,
+        **details,
+    )
+
+    return serialized_tx.hex()
+    
 def fetch_inputs_single(utxos):
     inputs = []
     txes = {}
@@ -156,7 +195,7 @@ def fetch_inputs_single(utxos):
         utxo = utxos.pop()
         try:
             response = get_input(utxo, request_url)
-            inputs.append(response['input'])
+            inputs.append(response['tx_input'])
             txes[response['txhash']] = response['tx']
         except RateLimitException:
             utxos.append(utxo)
@@ -168,7 +207,7 @@ def fetch_inputs_single(utxos):
     #     except RateLimitException:
     #         time.sleep(0.3)
     #         response = get_input(utxo)
-    #     inputs.append(response['input'])
+    #     inputs.append(response['tx_input'])
     #     txes[response['txhash']] = response['tx']
     # return inputs, txes
 
@@ -201,13 +240,13 @@ def get_input2(utxo, request_url):
         bin_outputs=bin_outputs, #[make_bin_output(vout) for vout in json_dict["vout"]],
     )
 
-    # from_address = tx_json["vout"][utxo_index]["scriptPubKey"]["address"]
+    # from_address = tx_dict["vout"][utxo_index]["scriptPubKey"]["address"]
     # amount = tx.bin_outputs[utxo_index].amount
     amount = utxo['value']
-    # echo(f"From address: {from_address} txid:{tx_json['txid']} amount:{amount}")
+    # echo(f"From address: {from_address} txid:{tx_dict['txid']} amount:{amount}")
     address_n = trezorlib.tools.parse_path("m/44'/0'/0'/0/0")
 
-    # reported_type = tx_json["vout"][utxo_index]["scriptPubKey"].get("type") # TODO
+    # reported_type = tx_dict["vout"][utxo_index]["scriptPubKey"].get("type") # TODO
     # script_type = BITCOIN_CORE_INPUT_TYPES[reported_type]
     script_type = trezorlib.messages.InputScriptType.SPENDADDRESS # TODO
     sequence = 0xFFFFFFFD
@@ -221,5 +260,5 @@ def get_input2(utxo, request_url):
         sequence=sequence,
     )
 
-    return {'input': new_input, 'tx': tx, 'txhash': txhash}
+    return {'tx_input': new_input, 'tx': tx, 'txhash': txhash}
 '''

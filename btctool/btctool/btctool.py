@@ -2,8 +2,7 @@ import logging
 
 import click
 
-import consolidate
-import sign_command
+import commands
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -12,12 +11,15 @@ logger.setLevel(logging.DEBUG)
 @click.group()
 @click.option('--debug/--no-debug', default=False)
 def entry_point(debug):
-    pass
+    version = '0.0.1'
+    print(f'btctool {version}')
 
 
 def main():
-    entry_point.add_command(consolidate.cmd_consolidate)
-    entry_point.add_command(sign_command.cmd_sign)
+    entry_point.add_command(commands.dl)
+    entry_point.add_command(commands.ls)
+    entry_point.add_command(commands.tx)
+    entry_point.add_command(commands.sg)
     entry_point()
 
 
