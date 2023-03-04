@@ -20,7 +20,7 @@ pub struct Common {
 // on-disk format for frost save data
 #[derive(Clone, Deserialize, Default, Debug)]
 pub struct Signer {
-    pub frost_id: u64,
+    pub frost_id: u32,
     pub frost_state_file: String,
 }
 
@@ -37,7 +37,7 @@ pub struct Cli {
 
     /// Turn debugging information on
     #[arg(short, long)]
-    id: Option<u64>,
+    id: Option<u32>,
 }
 
 impl Config {
@@ -45,6 +45,8 @@ impl Config {
         let content = fs::read_to_string(path).map_err(|e| format!("Invalid path: {}", &e))?;
         Self::from_str(&content)
     }
+
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(content: &str) -> Result<Config, String> {
         let config: Config = toml::from_str(content).map_err(|e| format!("Invalid toml: {}", e))?;
         Ok(config)

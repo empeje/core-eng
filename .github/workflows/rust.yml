@@ -11,14 +11,60 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.*
     - name: Build
       run: cargo build --verbose
+    - uses: actions/upload-artifact@v3
+      with:
+        name: Cargo.lock
+        path: Cargo.lock
+
+  test:
+    needs: build
+    strategy:
+      matrix:
+        # can't run on `windows-latests`
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.*
+    - uses: actions/checkout@v3
+    # We need to cache JS script dependencies before running `cargo test`.
+    # The `cargo test` command may spawn multiple `deno` processes.
+    - uses: actions/download-artifact@v3
+      with:
+        name: Cargo.lock
+    - name: Cache JS script dependencies
+      run: deno cache ./yarpc/js/stacks/transactions.ts
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose --locked
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
     - name: Run fmt check
       run: cargo fmt --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings -A clippy::op-ref -A clippy::needless-range-loop

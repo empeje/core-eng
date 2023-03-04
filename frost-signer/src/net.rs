@@ -41,7 +41,7 @@ pub trait NetListen {
     type Error: Debug;
 
     fn listen(&self);
-    fn poll(&mut self, id: u64);
+    fn poll(&mut self, id: u32);
     fn next_message(&mut self) -> Option<Message>;
     fn send_message(&self, msg: Message) -> Result<(), Self::Error>;
 }
@@ -51,22 +51,19 @@ impl NetListen for HttpNetListen {
 
     fn listen(&self) {}
 
-    fn poll(&mut self, id: u64) {
+    fn poll(&mut self, id: u32) {
         let url = url_with_id(&self.net.stacks_node_url, id);
         debug!("poll {}", url);
         match ureq::get(&url).call() {
             Ok(response) => {
-                match response.status() {
-                    200 => {
-                        match bincode::deserialize_from::<_, Message>(response.into_reader()) {
-                            Ok(msg) => {
-                                debug!("received {:?}", msg);
-                                self.in_queue.push(msg);
-                            }
-                            Err(_e) => {}
-                        };
-                    }
-                    _ => {}
+                if response.status() == 200 {
+                    match bincode::deserialize_from::<_, Message>(response.into_reader()) {
+                        Ok(msg) => {
+                            debug!("received {:?}", msg);
+                            self.in_queue.push(msg);
+                        }
+                        Err(_e) => {}
+                    };
                 };
             }
             Err(e) => {
@@ -128,7 +125,7 @@ pub enum HttpNetError {
     NetworkError(#[from] Box<ureq::Error>),
 }
 
-fn url_with_id(base: &str, id: u64) -> String {
+fn url_with_id(base: &str, id: u32) -> String {
     let mut url = base.to_owned();
     url.push_str(&format!("?id={}", id));
     url
