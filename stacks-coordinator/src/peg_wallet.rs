@@ -1,6 +1,5 @@
-use bitcoin::hashes::hex::{FromHex, ToHex};
 use bitcoin::hashes::Hash;
-use bitcoin::Script;
+use bitcoin::{Script, WPubkeyHash};
 use serde::Serialize;
 
 use crate::bitcoin_node;
@@ -18,6 +17,8 @@ pub enum Error {
     ConversionError(#[from] bitcoin::hashes::Error),
     #[error("type conversion error blockstack::bitcoin::hashes:hex {0}")]
     ConversionErrorHex(#[from] bitcoin::hashes::hex::Error),
+    #[error("type conversion error bitcoin::util::key::Error {0}")]
+    ConversionErrorKey(#[from] bitcoin::util::key::Error),
 }
 
 pub trait StacksWallet {
@@ -97,15 +98,21 @@ impl BitcoinWallet for FileBitcoinWallet {
             sequence: Default::default(),
             witness: Default::default(),
         };
-        //let p2wpk = bitcoin::Script::new_v0_p2wpkh(&user_address.wpubkey_hash().unwrap());
-        let peg_out_output_stx = op.recipient.to_bitcoin_tx_out(op.amount);
-        let peg_out_script = Script::from_hex(&peg_out_output_stx.script_pubkey.to_hex())?;
+        let user_address_hash =
+            bitcoin::hashes::hash160::Hash::from_slice(&op.recipient.bytes()).unwrap();
+        // let peg_out_output_stx = op.recipient.to_bitcoin_tx_out(op.amount);
+        // let peg_out_script = Script::from_hex(&peg_out_output_stx.script_pubkey.to_hex())?;
+        // let peg_out_output = bitcoin::TxOut {
+        //     value: peg_out_output_stx.value,
+        //     script_pubkey: peg_out_script,
+        // };
+        let p2wpk = Script::new_v0_p2wpkh(&WPubkeyHash::from_hash(user_address_hash));
         let peg_out_output = bitcoin::TxOut {
-            value: peg_out_output_stx.value,
-            script_pubkey: peg_out_script,
+            value: op.amount,
+            script_pubkey: p2wpk,
         };
         Ok(bitcoin::blockdata::transaction::Transaction {
-            version: 0,
+            version: 2,
             lock_time: bitcoin::PackedLockTime(0),
             input: vec![peg_out_input],
             output: vec![peg_out_output],
@@ -126,7 +133,10 @@ mod tests {
     #[test]
     fn fufill_peg_out() {
         let wallet = FileBitcoinWallet {};
-        let recipient = PoxAddress::Addr20(true, PoxAddressType20::P2WPKH, [0x01; 20]);
+        let bitcoin_address =
+            bitcoin::hashes::hex::FromHex::from_hex("dbc67065ff340e44956471a4b85a6b636c223a06")
+                .unwrap();
+        let recipient = PoxAddress::Addr20(true, PoxAddressType20::P2WPKH, bitcoin_address);
         let peg_wallet_address = PoxAddress::Addr20(true, PoxAddressType20::P2WPKH, [0x01; 20]);
         let req_op = PegOutRequestOp {
             amount: 1000,
