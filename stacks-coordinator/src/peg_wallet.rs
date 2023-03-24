@@ -33,6 +33,8 @@ pub trait BitcoinWallet {
         &self,
         op: &stacks_node::PegOutRequestOp,
     ) -> Result<bitcoin_node::BitcoinTransaction, Error>;
+    fn validate_peg_out_request(&self, txid: bitcoin::Txid) -> Result<(), Error>;
+    fn build_peg_out_btc_tx(&self, op: &PegOutRequestOp) -> Result<BitcoinTransaction, Error>;
 }
 
 pub trait PegWallet {
@@ -87,9 +89,18 @@ pub struct FileBitcoinWallet {}
 
 impl BitcoinWallet for FileBitcoinWallet {
     fn fulfill_peg_out(&self, op: &PegOutRequestOp) -> Result<BitcoinTransaction, Error> {
-        let bitcoin_txid = bitcoin::Txid::from_slice(op.txid.as_bytes())?;
+        let bitcoin_peg_out_request_txid = bitcoin::Txid::from_slice(op.txid.as_bytes())?;
+        self.validate_peg_out_request(bitcoin_peg_out_request_txid)?;
+        self.build_peg_out_btc_tx(op)
+    }
+
+    fn validate_peg_out_request(&self, _txid: bitcoin::Txid) -> Result<(), Error> {
+        Ok(()) // todo
+    }
+
+    fn build_peg_out_btc_tx(&self, op: &PegOutRequestOp) -> Result<BitcoinTransaction, Error> {
         let utxo = bitcoin::OutPoint {
-            txid: bitcoin_txid,
+            txid: bitcoin::Txid::from_slice(&[0; 32]).unwrap(),
             vout: op.vtxindex,
         };
         let peg_out_input = bitcoin::TxIn {
@@ -100,22 +111,21 @@ impl BitcoinWallet for FileBitcoinWallet {
         };
         let user_address_hash =
             bitcoin::hashes::hash160::Hash::from_slice(&op.recipient.bytes()).unwrap();
-        // let peg_out_output_stx = op.recipient.to_bitcoin_tx_out(op.amount);
-        // let peg_out_script = Script::from_hex(&peg_out_output_stx.script_pubkey.to_hex())?;
-        // let peg_out_output = bitcoin::TxOut {
-        //     value: peg_out_output_stx.value,
-        //     script_pubkey: peg_out_script,
-        // };
-        let p2wpk = Script::new_v0_p2wpkh(&WPubkeyHash::from_hash(user_address_hash));
-        let peg_out_output = bitcoin::TxOut {
+        let recipient_p2wpk = Script::new_v0_p2wpkh(&WPubkeyHash::from_hash(user_address_hash));
+        let peg_out_output_recipient = bitcoin::TxOut {
             value: op.amount,
-            script_pubkey: p2wpk,
+            script_pubkey: recipient_p2wpk,
+        };
+        let change_address_p2tr = Script::default(); // todo: Script::new_v1_p2tr();
+        let peg_out_output_change = bitcoin::TxOut {
+            value: op.amount,
+            script_pubkey: change_address_p2tr,
         };
         Ok(bitcoin::blockdata::transaction::Transaction {
             version: 2,
             lock_time: bitcoin::PackedLockTime(0),
             input: vec![peg_out_input],
-            output: vec![peg_out_output],
+            output: vec![peg_out_output_recipient, peg_out_output_change],
         })
     }
 }
@@ -131,7 +141,7 @@ mod tests {
     use crate::stacks_node::PegOutRequestOp;
 
     #[test]
-    fn fufill_peg_out() {
+    fn bulid_peg_out_btc_op() {
         let wallet = FileBitcoinWallet {};
         let bitcoin_address =
             bitcoin::hashes::hex::FromHex::from_hex("dbc67065ff340e44956471a4b85a6b636c223a06")
@@ -150,7 +160,7 @@ mod tests {
             block_height: 0,
             burn_header_hash: BurnchainHeaderHash([0x00; 32]),
         };
-        let btc_tx = wallet.fulfill_peg_out(&req_op).unwrap();
+        let btc_tx = wallet.build_peg_out_btc_tx(&req_op).unwrap();
         assert_eq!(btc_tx.output[0].value, 1000)
     }
 }

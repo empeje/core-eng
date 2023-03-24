@@ -123,7 +123,7 @@ trait CoordinatorHelpers: Coordinator {
     fn peg_out(&mut self, op: stacks_node::PegOutRequestOp) -> Result<()> {
         let _stacks = self.fee_wallet().stacks_mut();
         let _burn_tx = self.fee_wallet().stacks_mut().burn(&op)?;
-        //self.stacks_node().broadcast_transaction(&burn_tx);
+        //todo: self.stacks_node().broadcast_transaction(&burn_tx);
 
         let fulfill_tx = self.btc_fulfill_peg_out(&op)?;
         self.bitcoin_node().broadcast_transaction(&fulfill_tx);
