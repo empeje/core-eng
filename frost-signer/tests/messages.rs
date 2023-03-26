@@ -29,6 +29,7 @@ fn dkg_begin() {
 #[test]
 fn signature_share() {
     let share = SignatureShareRequest {
+        sign_id: 0,
         dkg_id: 0,
         correlation_id: 0,
         party_id: 0,

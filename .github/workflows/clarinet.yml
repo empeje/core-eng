@@ -1,0 +1,35 @@
+name: Clarinet
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  check:
+    name: Clarinet check for sbtc-ops
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustfmt
+          override: true
+
+      - name: Install clarinet
+        run: chmod +x ./bin/install_clarinet_acton.sh && ./bin/install_clarinet_acton.sh
+
+      - name: Run clarinet check
+        working-directory: ./sbtc-ops/clarinet
+        run: clarinet check
+
+      - name: Run clarinet test
+        working-directory: ./sbtc-ops/clarinet
+        run: clarinet test

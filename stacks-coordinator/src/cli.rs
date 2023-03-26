@@ -1,18 +1,39 @@
-#[derive(clap::Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct Args {
-    #[command(subcommand)]
-    command: Command,
-}
+use clap::Parser;
 
-impl Args {
-    pub fn parse() -> Self {
-        <Self as clap::Parser>::parse()
-    }
+///Command line interface for stacks coordinator
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+pub struct Cli {
+    /// Turn debugging information on
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub debug: bool,
+
+    /// Config file path
+    /// TODO: pull this info from sBTC
+    #[arg(short, long)]
+    pub config: String,
+
+    /// Optional starting block height to use.
+    /// Will override any listed value within the config file
+    #[arg(short = 'b', long)]
+    pub start_block_height: Option<u64>,
+
+    /// Signer Config file path
+    /// TODO: this should not be a seperate option really
+    #[arg(short, long)]
+    pub signer_config: String,
+
+    /// Subcommand to perform
+    #[clap(subcommand)]
+    pub command: Command,
 }
 
 #[derive(clap::Subcommand, Debug)]
-enum Command {
+pub enum Command {
+    // Listen for incoming peg in and peg out requests.
     Run,
+    // Run distributed key generation round
     Dkg,
+    // Run distributed key generation round then sign a message
+    DkgSign,
 }

@@ -2,22 +2,25 @@ use blockstack_lib::burnchains::Txid;
 use blockstack_lib::types::chainstate::BurnchainHeaderHash;
 
 use crate::stacks_node;
-
+use crate::stacks_node::Error as StacksNodeError;
 mod sqlite_peg_queue;
 
-pub use sqlite_peg_queue::SqlitePegQueue;
+pub use sqlite_peg_queue::{Error as SqlitePegQueueError, SqlitePegQueue};
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Sqlite Peg Queue Error: {0}")]
+    SqlitePegQueueError(#[from] SqlitePegQueueError),
+    #[error("Stacks Node Error: {0}")]
+    StacksNodeError(#[from] StacksNodeError),
+}
 
 pub trait PegQueue {
-    type Error: std::error::Error;
+    fn sbtc_op(&self) -> Result<Option<SbtcOp>, Error>;
+    fn poll<N: stacks_node::StacksNode>(&self, stacks_node: &N) -> Result<(), Error>;
 
-    fn sbtc_op(&self) -> Result<Option<SbtcOp>, Self::Error>;
-    fn poll<N: stacks_node::StacksNode>(&self, stacks_node: &N) -> Result<(), Self::Error>;
-
-    fn acknowledge(
-        &self,
-        txid: &Txid,
-        burn_header_hash: &BurnchainHeaderHash,
-    ) -> Result<(), Self::Error>;
+    fn acknowledge(&self, txid: &Txid, burn_header_hash: &BurnchainHeaderHash)
+        -> Result<(), Error>;
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

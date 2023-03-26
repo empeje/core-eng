@@ -11,5 +11,6 @@ Documentation: https://core-eng.pages.dev/
 
 ## Prerequisites
 
-- [Rust 1.67.1+](https://www.rust-lang.org)
-- [Deno 1.30.3+](https://deno.land)
+- [Rust 1.67.1+](https://www.rust-lang.org).
+- [Deno 1.30.3+](https://deno.land).
+- Bitcoin Core 22.0. Run [./.install/bitcoin.sh](./.install/bitcoin.sh).

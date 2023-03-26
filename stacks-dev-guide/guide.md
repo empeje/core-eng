@@ -1,5 +1,38 @@
 # Stacks Developer Guide
 
+<!-- TOC -->
+* [Stacks Developer Guide](#stacks-developer-guide)
+  * [What is the structure of the stacks-network repo?](#what-is-the-structure-of-the-stacks-network-repo)
+  * [How do I run the test suite?](#how-do-i-run-the-test-suite)
+    * [Local tests](#local-tests)
+    * [Integration tests](#integration-tests)
+    * [Clarity core contract tests](#clarity-core-contract-tests)
+  * [What are the different burnchain modes and run loops?](#what-are-the-different-burnchain-modes-and-run-loops)
+  * [How do I run a mock miner?](#how-do-i-run-a-mock-miner)
+  * [What is testnet?](#what-is-testnet)
+  * [What is sortition?](#what-is-sortition)
+  * [What is a tenure?](#what-is-a-tenure)
+  * [What are epochs?](#what-are-epochs)
+  * [What are reward cycles?](#what-are-reward-cycles)
+  * [What is a PoX anchor block?](#what-is-a-pox-anchor-block)
+  * [What is an anchor block?](#what-is-an-anchor-block)
+  * [How is a PoX anchor block different from an anchor block?](#how-is-a-pox-anchor-block-different-from-an-anchor-block)
+  * [What is index block hash vs block hash?](#what-is-index-block-hash-vs-block-hash)
+  * [What is a microblock?](#what-is-a-microblock)
+  * [What databases does stacks use?](#what-databases-does-stacks-use)
+  * [How do I explore the sqlite db’s?](#how-do-i-explore-the-sqlite-dbs)
+  * [What threads does stacks-node spawn?](#what-threads-does-stacks-node-spawn)
+  * [What are the typical log file entries for stacks-node?](#what-are-the-typical-log-file-entries-for-stacks-node)
+  * [What are affirmation maps?](#what-are-affirmation-maps)
+  * [Where can I learn more about Stacks internals?](#where-can-i-learn-more-about-stacks-internals)
+  * [How do I check the syntax of a Clarity smart contract?](#how-do-i-check-the-syntax-of-a-clarity-smart-contract)
+  * [What is the difference between `src/vm_clarity` and `clarity/src`?](#what-is-the-difference-between-srcvmclarity-and-claritysrc-)
+  * [How do I get testnet STX coins from the faucet?](#how-do-i-get-testnet-stx-coins-from-the-faucet)
+  * [How do I stack stx from the commandline?](#how-do-i-stack-stx-from-the-commandline)
+  * [How do I make a call to a read-only function in a clarity contract?](#how-do-i-make-a-call-to-a-read-only-function-in-a-clarity-contract)
+  * [How do I get the hashbytes for a pox-addr from bitcoin compressed public key bytes?](#how-do-i-get-the-hashbytes-for-a-pox-addr-from-bitcoin-compressed-public-key-bytes)
+<!-- TOC -->
+
 ## What is the structure of the stacks-network repo?
 
 [https://github.com/stacks-network/stacks-blockchain](https://github.com/stacks-network/stacks-blockchain)
@@ -287,3 +320,24 @@ $ cargo install digester --all-features
 $ echo be6f7f08c8c8d0ff9cb47483a7d24bc984e4381c0057b7b16c315f212c46f0a0  | xxd -r -p |  digester -a ripemd160
 e8b19d771ed4f3ab18dd5c8cc6fca3a2a1c31b61
 ```
+## How to add new Table of contents?
+
+You can install `markdown-toc` from cargo using the following command:
+
+```bash
+cargo install markdown-toc
+```
+
+Then you can run the following command to update the TOC:
+
+```bash
+# from stacks-dev-guide repository
+md-toc guide.md
+```
+
+## How do I Participate in the Radon 2.1 Testnet?
+
+As announced in [Jude's tweet][TWEET_RADON], you can participate in the Radon 2.1 testnet by following these steps: mentioned in this [Gist][RADON_GISTS].
+
+[TWEET_RADON]: https://twitter.com/judecnelson/status/1623151711530504192 
+[RADON_GISTS]: https://gist.github.com/jcnelson/c5f43cbefba3727dcccf5a95209b60fc
