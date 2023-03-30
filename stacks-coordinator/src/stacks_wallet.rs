@@ -6,9 +6,13 @@ use crate::{
     stacks_node::{PegInOp, PegOutRequestOp},
     stacks_transaction::StacksTransaction,
 };
-
-use blockstack_lib::vm::types::{ASCIIData, BuffData, CharType, SequenceData};
-use blockstack_lib::vm::Value;
+use blockstack_lib::{
+    chainstate::stacks::{address::PoxAddress, StacksTransaction},
+    vm::{
+        types::{ASCIIData, PrincipalData, StandardPrincipalData},
+        Value,
+    },
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -22,6 +26,9 @@ pub enum Error {
     ///An invalid contract was specified in the config file
     #[error("Invalid contract name and address: {0}")]
     InvalidContract(String),
+    ///An invalid peg out
+    #[error("Invalid peg wallet address: {0}")]
+    InvalidAddress(PoxAddress),
 }
 
 pub struct StacksWallet {
@@ -52,12 +59,16 @@ impl StacksWalletTrait for StacksWallet {
         op: &PegInOp,
     ) -> Result<StacksTransaction, PegWalletError> {
         let function_name = "mint!";
+
+        // Build the function arguments
         let amount = Value::UInt(op.amount.into());
-        let principal = Value::Principal(op.recipient.clone());
-        let tx_id = Value::Sequence(SequenceData::Buffer(BuffData {
+        let principal = Value::from(op.recipient.clone());
+        let tx_id = Value::from(ASCIIData {
             data: op.txid.to_bytes().to_vec(),
-        }));
+        });
         let function_args: Vec<Value> = vec![amount, principal, tx_id];
+
+        // Build the signed options to pass to the stacks.js call "makeContractCall"
         let input = SignedContractCallOptions::new(
             self.contract_address.clone(),
             self.contract_name.clone(),
@@ -70,35 +81,51 @@ impl StacksWalletTrait for StacksWallet {
     }
     fn build_burn_transaction(
         &mut self,
-        _op: &PegOutRequestOp,
+        op: &PegOutRequestOp,
     ) -> Result<StacksTransaction, PegWalletError> {
-        // let function_name = "burn!";
-        // let amount = Value::UInt(op.amount.into());
-        // let principal = todo!();
-        // let tx_id = Value::Sequence(SequenceData::Buffer(BuffData {
-        //     data: op.txid.to_bytes().to_vec(),
-        // }));
-        // let function_args: Vec<Value> = vec![amount, principal, tx_id];
-        // let input = SignedContractCallOptions::new(
-        //     self.contract_address.clone(),
-        //     self.contract_name.clone(),
-        //     function_name,
-        //     &function_args,
-        //     ANY,
-        //     self.sender_key.clone(),
-        // );
-        // Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
-        todo!()
+        let function_name = "burn!";
+
+        // Build the function arguments
+        let amount = Value::UInt(op.amount.into());
+        let stacks_wallet_address = op
+            .peg_wallet_address
+            .clone()
+            .try_into_stacks_address()
+            .ok_or_else(|| Error::InvalidAddress(op.peg_wallet_address.clone()))?;
+        let principal = Value::from(PrincipalData::from(StandardPrincipalData(
+            stacks_wallet_address.version,
+            stacks_wallet_address.bytes.0,
+        )));
+        let tx_id = Value::from(ASCIIData {
+            data: op.txid.to_bytes().to_vec(),
+        });
+        let function_args: Vec<Value> = vec![amount, principal, tx_id];
+
+        // Build the signed options to pass to the stacks.js call "makeContractCall"
+        let input = SignedContractCallOptions::new(
+            self.contract_address.clone(),
+            self.contract_name.clone(),
+            function_name,
+            &function_args,
+            ANY,
+            self.sender_key.clone(),
+        );
+
+        Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
     }
     fn build_set_address_transaction(
         &mut self,
         address: PegWalletAddress,
     ) -> Result<StacksTransaction, PegWalletError> {
         let function_name = "set-bitcoin-wallet-address";
-        let address = Value::Sequence(SequenceData::String(CharType::ASCII(ASCIIData {
+
+        // Build the function arguments
+        let address = Value::from(ASCIIData {
             data: address.0.to_vec(),
-        })));
+        });
         let function_args = vec![address];
+
+        // Build the signed options to pass to the stacks.js call "makeContractCall"
         let input = SignedContractCallOptions::new(
             self.contract_address.clone(),
             self.contract_name.clone(),
