@@ -20,7 +20,7 @@ fn pox_address() -> PoxAddress {
 fn stacks_wallet() -> StacksWallet {
     StacksWallet::new(
         "..",
-        "SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sbtc_alpha".to_string(),
+        "SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sbtc-alpha".to_string(),
         "0001020304050607080910111213141516171819202122232425262728293031".to_string(),
     )
     .unwrap()
@@ -39,7 +39,7 @@ fn stacks_mint_test() {
         burn_header_hash: BurnchainHeaderHash([0; 32]),
     };
     let mut wallet = stacks_wallet();
-    let _result = wallet.build_mint_transaction(&p);
+    let _tx = wallet.build_mint_transaction(&p).unwrap();
     // assert_eq!(result, "Mint");
 }
 
@@ -58,14 +58,17 @@ fn stacks_burn_test() {
         burn_header_hash: BurnchainHeaderHash([0; 32]),
     };
     let mut wallet = stacks_wallet();
-    let _result = wallet.build_burn_transaction(&p);
+    let _tx = wallet.build_burn_transaction(&p).unwrap();
     // assert_eq!(result, "Burn");
 }
 
 #[test]
-fn stacks_set_wallet_address_test() {
-    let p = PegWalletAddress([0; 32]);
+fn stacks_build_set_address_transaction() {
+    let p = PegWalletAddress([
+        4, 5, 6, 7, 8, 9, b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l',
+        b'm', b'n', b'o', b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z',
+    ]);
     let mut wallet = stacks_wallet();
-    let _result = wallet.build_set_address_transaction(p);
+    let _tx = wallet.build_set_address_transaction(p).unwrap();
     // assert_eq!(result, "SetWalletAddress");
 }

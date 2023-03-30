@@ -4,7 +4,7 @@ use crate::{
     },
     peg_wallet::{Error as PegWalletError, PegWalletAddress, StacksWallet as StacksWalletTrait},
     stacks_node::{PegInOp, PegOutRequestOp},
-    stacks_transaction::StacksTransaction,
+    stacks_transaction::Error as StacksTransactionError,
 };
 use blockstack_lib::{
     chainstate::stacks::{address::PoxAddress, StacksTransaction},
@@ -29,6 +29,9 @@ pub enum Error {
     ///An invalid peg out
     #[error("Invalid peg wallet address: {0}")]
     InvalidAddress(PoxAddress),
+    ///An invalid transaction
+    #[error("Invalid stacks transaction: {0}")]
+    InvalidTransaction(#[from] StacksTransactionError),
 }
 
 pub struct StacksWallet {
@@ -77,7 +80,9 @@ impl StacksWalletTrait for StacksWallet {
             ANY,
             self.sender_key.clone(),
         );
-        Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
+
+        let tx = self.make_contract_call.call(&input).map_err(Error::from)?;
+        Ok(tx.to_blockstack_transaction().map_err(Error::from)?)
     }
     fn build_burn_transaction(
         &mut self,
@@ -111,7 +116,8 @@ impl StacksWalletTrait for StacksWallet {
             self.sender_key.clone(),
         );
 
-        Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
+        let tx = self.make_contract_call.call(&input).map_err(Error::from)?;
+        Ok(tx.to_blockstack_transaction().map_err(Error::from)?)
     }
     fn build_set_address_transaction(
         &mut self,
@@ -134,6 +140,8 @@ impl StacksWalletTrait for StacksWallet {
             ANY,
             self.sender_key.clone(),
         );
-        Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
+
+        let tx = self.make_contract_call.call(&input).map_err(Error::from)?;
+        Ok(tx.to_blockstack_transaction().map_err(Error::from)?)
     }
 }

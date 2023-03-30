@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use blockstack_lib::vm::{database::ClaritySerializable, Value};
+use crate::stacks_transaction::StacksTransaction;
 use serde::Serialize;
 use yarpc::{dispatch_command::DispatchCommand, js::Js, rpc::Rpc};
 
-use crate::stacks_transaction::StacksTransaction;
+use blockstack_lib::vm::{database::ClaritySerializable, Value};
 
 pub type ClarityValue = String;
 
@@ -126,6 +126,7 @@ impl MakeContractCall {
             .0
             .call(&DispatchCommand("makeContractCall".to_string(), input))?)
     }
+
     pub fn new(path: &str) -> Result<Self, Error> {
         let file_name = Path::new(path).join("yarpc/js/stacks/transactions.ts");
         Ok(Self(Js::new(

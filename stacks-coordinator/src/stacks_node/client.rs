@@ -1,7 +1,8 @@
 use crate::stacks_node::{Error as StacksNodeError, PegInOp, PegOutRequestOp, StacksNode};
 use blockstack_lib::{
-    chainstate::stacks::address::StacksAddressExtensions, chainstate::stacks::StacksTransaction,
-    codec::StacksMessageCodec, types::chainstate::StacksAddress,
+    chainstate::stacks::{address::StacksAddressExtensions, StacksTransaction},
+    codec::StacksMessageCodec,
+    types::chainstate::StacksAddress,
 };
 use reqwest::blocking::Client;
 use serde_json::Value;

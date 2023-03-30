@@ -123,15 +123,14 @@ pub trait Coordinator: Sized {
 // Private helper functions
 trait CoordinatorHelpers: Coordinator {
     fn peg_in(&mut self, op: stacks_node::PegInOp) -> Result<()> {
-        let _tx = self.fee_wallet().stacks_mut().build_mint_transaction(&op)?;
-        //self.stacks_node().broadcast_transaction(&tx);
+        let tx = self.fee_wallet().stacks_mut().build_mint_transaction(&op)?;
+        self.stacks_node().broadcast_transaction(&tx)?;
         Ok(())
     }
 
     fn peg_out(&mut self, op: stacks_node::PegOutRequestOp) -> Result<()> {
-        let _stacks = self.fee_wallet().stacks_mut();
-        let _burn_tx = self.fee_wallet().stacks_mut().build_burn_transaction(&op)?;
-        //self.stacks_node().broadcast_transaction(&burn_tx);
+        let burn_tx = self.fee_wallet().stacks_mut().build_burn_transaction(&op)?;
+        self.stacks_node().broadcast_transaction(&burn_tx)?;
 
         let fulfill_tx = self.btc_fulfill_peg_out(&op)?;
         self.bitcoin_node().broadcast_transaction(&fulfill_tx);

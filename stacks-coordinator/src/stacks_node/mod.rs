@@ -1,9 +1,7 @@
 pub mod client;
 
-use blockstack_lib::chainstate::burn::operations as burn_ops;
+use blockstack_lib::chainstate::{burn::operations as burn_ops, stacks::StacksTransaction};
 use blockstack_lib::types::chainstate::StacksAddress;
-
-pub use blockstack_lib::chainstate::stacks::StacksTransaction;
 
 /// Kinds of common errors used by stacks coordinator
 #[derive(thiserror::Error, Debug)]

@@ -1,8 +1,8 @@
 use crate::bitcoin_node;
 use crate::bitcoin_wallet::{BitcoinWallet as BitcoinWalletStruct, Error as BitcoinWalletError};
 use crate::stacks_node;
-use crate::stacks_transaction::StacksTransaction;
 use crate::stacks_wallet::{Error as StacksWalletError, StacksWallet as StacksWalletStruct};
+use blockstack_lib::chainstate::stacks::StacksTransaction;
 use serde::Serialize;
 use std::fmt::Debug;
 
