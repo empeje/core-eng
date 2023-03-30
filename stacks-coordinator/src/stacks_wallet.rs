@@ -7,6 +7,9 @@ use crate::{
     stacks_transaction::StacksTransaction,
 };
 
+use blockstack_lib::vm::types::{ASCIIData, BuffData, CharType, SequenceData};
+use blockstack_lib::vm::Value;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("type conversion error from blockstack::bitcoin to bitcoin:: {0}")]
@@ -41,44 +44,69 @@ impl StacksWallet {
             sender_key,
         })
     }
-    fn call(&mut self, function_name: String) -> Result<StacksTransaction, Error> {
-        let input = SignedContractCallOptions {
-            contractAddress: self.contract_address.clone(),
-            contractName: self.contract_name.to_string(),
-            functionName: function_name,
-            functionArgs: Vec::default(),
-            fee: Some(0.to_string()),
-            feeEstimateApiUrl: None,
-            nonce: None,
-            network: None,
-            anchorMode: ANY,
-            postConditionMode: None,
-            postConditions: None,
-            validateWithAbi: None,
-            sponsored: None,
-            senderKey: self.sender_key.clone(),
-        };
-        Ok(self.make_contract_call.call(&input)?)
-    }
 }
 
 impl StacksWalletTrait for StacksWallet {
     fn build_mint_transaction(
         &mut self,
-        _op: &PegInOp,
+        op: &PegInOp,
     ) -> Result<StacksTransaction, PegWalletError> {
-        Ok(self.call("mint!".to_string())?)
+        let function_name = "mint!";
+        let amount = Value::UInt(op.amount.into());
+        let principal = Value::Principal(op.recipient.clone());
+        let tx_id = Value::Sequence(SequenceData::Buffer(BuffData {
+            data: op.txid.to_bytes().to_vec(),
+        }));
+        let function_args: Vec<Value> = vec![amount, principal, tx_id];
+        let input = SignedContractCallOptions::new(
+            self.contract_address.clone(),
+            self.contract_name.clone(),
+            function_name,
+            &function_args,
+            ANY,
+            self.sender_key.clone(),
+        );
+        Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
     }
     fn build_burn_transaction(
         &mut self,
         _op: &PegOutRequestOp,
     ) -> Result<StacksTransaction, PegWalletError> {
-        Ok(self.call("burn!".to_string())?)
+        // let function_name = "burn!";
+        // let amount = Value::UInt(op.amount.into());
+        // let principal = todo!();
+        // let tx_id = Value::Sequence(SequenceData::Buffer(BuffData {
+        //     data: op.txid.to_bytes().to_vec(),
+        // }));
+        // let function_args: Vec<Value> = vec![amount, principal, tx_id];
+        // let input = SignedContractCallOptions::new(
+        //     self.contract_address.clone(),
+        //     self.contract_name.clone(),
+        //     function_name,
+        //     &function_args,
+        //     ANY,
+        //     self.sender_key.clone(),
+        // );
+        // Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
+        todo!()
     }
     fn build_set_address_transaction(
         &mut self,
-        _address: PegWalletAddress,
+        address: PegWalletAddress,
     ) -> Result<StacksTransaction, PegWalletError> {
-        Ok(self.call("set-bitcoin-wallet-address".to_string())?)
+        let function_name = "set-bitcoin-wallet-address";
+        let address = Value::Sequence(SequenceData::String(CharType::ASCII(ASCIIData {
+            data: address.0.to_vec(),
+        })));
+        let function_args = vec![address];
+        let input = SignedContractCallOptions::new(
+            self.contract_address.clone(),
+            self.contract_name.clone(),
+            function_name,
+            &function_args,
+            ANY,
+            self.sender_key.clone(),
+        );
+        Ok(self.make_contract_call.call(&input).map_err(Error::from)?)
     }
 }
