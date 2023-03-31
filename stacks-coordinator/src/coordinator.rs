@@ -271,7 +271,6 @@ mod tests {
         let config = Config {
             sbtc_contract: "".to_string(),
             stacks_private_key: "".to_string(),
-            bitcoin_private_key: "".to_string(),
             stacks_node_rpc_url: "".to_string(),
             bitcoin_node_rpc_url: "".to_string(),
             frost_dkg_round_id: 0,
