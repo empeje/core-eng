@@ -4,7 +4,10 @@ use crate::stacks_transaction::StacksTransaction;
 use serde::Serialize;
 use yarpc::{dispatch_command::DispatchCommand, js::Js, rpc::Rpc};
 
-use blockstack_lib::vm::{database::ClaritySerializable, Value};
+use blockstack_lib::{
+    chainstate::stacks::TransactionPostConditionMode,
+    vm::{database::ClaritySerializable, Value},
+};
 
 pub type ClarityValue = String;
 
@@ -26,7 +29,7 @@ pub enum Error {
 }
 
 #[allow(non_snake_case)]
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SignedContractCallOptions {
     pub contractAddress: String,
 
@@ -87,7 +90,7 @@ impl SignedContractCallOptions {
             nonce: None,
             network: None,
             anchorMode: anchor_mode,
-            postConditionMode: None,
+            postConditionMode: Some(TransactionPostConditionMode::Deny as u8),
             postConditions: None,
             validateWithAbi: None,
             sponsored: None,
@@ -100,9 +103,9 @@ impl SignedContractCallOptions {
     }
 }
 
-pub type TransactionVersion = serde_json::Number;
+pub type TransactionVersion = u8;
 
-pub type ChainID = serde_json::Number;
+pub type ChainID = u32;
 
 pub type Authorization = serde_json::Value;
 
@@ -114,7 +117,7 @@ pub const ANY: AnchorMode = 3;
 
 pub type Payload = serde_json::Value;
 
-pub type PostConditionMode = serde_json::Value;
+pub type PostConditionMode = u8;
 
 pub type LengthPrefixedList = serde_json::Value;
 

@@ -79,7 +79,8 @@ impl StacksWalletTrait for StacksWallet {
             &function_args,
             ANY,
             self.sender_key.clone(),
-        );
+        )
+        .with_fee(0);
 
         let tx = self.make_contract_call.call(&input).map_err(Error::from)?;
         Ok(tx.to_blockstack_transaction().map_err(Error::from)?)
@@ -114,8 +115,8 @@ impl StacksWalletTrait for StacksWallet {
             &function_args,
             ANY,
             self.sender_key.clone(),
-        );
-
+        )
+        .with_fee(0);
         let tx = self.make_contract_call.call(&input).map_err(Error::from)?;
         Ok(tx.to_blockstack_transaction().map_err(Error::from)?)
     }
@@ -139,7 +140,8 @@ impl StacksWalletTrait for StacksWallet {
             &function_args,
             ANY,
             self.sender_key.clone(),
-        );
+        )
+        .with_fee(0);
 
         let tx = self.make_contract_call.call(&input).map_err(Error::from)?;
         Ok(tx.to_blockstack_transaction().map_err(Error::from)?)

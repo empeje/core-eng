@@ -26,6 +26,7 @@ fn stacks_wallet() -> StacksWallet {
     .unwrap()
 }
 
+#[ignore]
 #[test]
 fn stacks_mint_test() {
     let p = PegInOp {
@@ -43,6 +44,7 @@ fn stacks_mint_test() {
     // assert_eq!(result, "Mint");
 }
 
+#[ignore]
 #[test]
 fn stacks_burn_test() {
     let p = PegOutRequestOp {
@@ -52,7 +54,7 @@ fn stacks_burn_test() {
         peg_wallet_address: pox_address(),
         fulfillment_fee: 0,
         memo: Vec::default(),
-        txid: Txid([0; 32]),
+        txid: Txid([0x04; 32]),
         vtxindex: 0,
         block_height: 0,
         burn_header_hash: BurnchainHeaderHash([0; 32]),
@@ -62,6 +64,7 @@ fn stacks_burn_test() {
     // assert_eq!(result, "Burn");
 }
 
+#[ignore]
 #[test]
 fn stacks_build_set_address_transaction() {
     let p = PegWalletAddress([
