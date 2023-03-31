@@ -97,6 +97,7 @@ impl SignedContractCallOptions {
             senderKey: sender_key.into(),
         }
     }
+
     pub fn with_fee(mut self, fee: u128) -> Self {
         self.fee = Some(fee.to_string());
         self

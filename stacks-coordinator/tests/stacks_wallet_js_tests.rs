@@ -29,19 +29,27 @@ fn stacks_wallet() -> StacksWallet {
 #[ignore]
 #[test]
 fn stacks_mint_test() {
+    let mut principal = [0u8; 20];
+    principal.copy_from_slice(b"0123456789abcdefghij");
+    let principal = PrincipalData::Standard(StandardPrincipalData(0, principal));
+
+    let mut txid = [0u8; 32];
+    txid.copy_from_slice(b"0123456789abcdefghijklmnopkrstuv");
+    let txid = Txid(txid);
+
     let p = PegInOp {
-        recipient: PrincipalData::Standard(StandardPrincipalData(0, [0; 20])),
+        recipient: principal.clone(),
         peg_wallet_address: pox_address(),
-        amount: 0,
+        amount: 55155,
         memo: Vec::default(),
-        txid: Txid([0; 32]),
+        txid,
         vtxindex: 0,
         block_height: 0,
         burn_header_hash: BurnchainHeaderHash([0; 32]),
     };
     let mut wallet = stacks_wallet();
-    let _tx = wallet.build_mint_transaction(&p).unwrap();
-    // assert_eq!(result, "Mint");
+    let tx = wallet.build_mint_transaction(&p).unwrap();
+    tx.verify().unwrap();
 }
 
 #[ignore]
@@ -60,18 +68,18 @@ fn stacks_burn_test() {
         burn_header_hash: BurnchainHeaderHash([0; 32]),
     };
     let mut wallet = stacks_wallet();
-    let _tx = wallet.build_burn_transaction(&p).unwrap();
-    // assert_eq!(result, "Burn");
+    let tx = wallet.build_burn_transaction(&p).unwrap();
+    tx.verify().unwrap();
 }
 
 #[ignore]
 #[test]
 fn stacks_build_set_address_transaction() {
-    let p = PegWalletAddress([
-        4, 5, 6, 7, 8, 9, b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l',
-        b'm', b'n', b'o', b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z',
-    ]);
+    let mut address = [0u8; 32];
+    address.copy_from_slice(b"0123456789abcdefghijklmnopkrstuv");
+
+    let p = PegWalletAddress(address);
     let mut wallet = stacks_wallet();
-    let _tx = wallet.build_set_address_transaction(p).unwrap();
-    // assert_eq!(result, "SetWalletAddress");
+    let tx = wallet.build_set_address_transaction(p).unwrap();
+    tx.verify().unwrap();
 }

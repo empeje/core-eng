@@ -215,7 +215,7 @@ impl TryFrom<Config> for StacksCoordinator {
             local_fee_wallet: WrapPegWallet {
                 bitcoin_wallet: BitcoinWallet {},
                 stacks_wallet: StacksWallet::new(
-                    "..",
+                    ".",
                     config.sbtc_contract,
                     config.stacks_private_key,
                 )?,
