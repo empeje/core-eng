@@ -114,12 +114,12 @@ impl StacksAuth {
         let mut sig_buf = [0u8; 65];
         let sig_bytes = sig.signature.data.as_bytes();
         if sig_bytes.len() < 65 {
-            sig_buf.copy_from_slice(&sig_bytes[..]);
+            sig_buf.copy_from_slice(sig_bytes)
         } else {
             sig_buf.copy_from_slice(&sig_bytes[..65]);
         }
         let sig = SinglesigSpendingCondition {
-            hash_mode: hash_mode,
+            hash_mode,
             signer: Hash160::from_data(sig.signer.as_bytes()),
             nonce: sig.nonce.parse()?,
             tx_fee: sig.fee.parse()?,
@@ -134,7 +134,7 @@ impl StacksAuth {
     fn to_sponsored(&self) -> Result<TransactionAuth, Error> {
         // TODO: Is this something we should support?
         // Should I output a warning for now about not yet implemented instead?
-        return Err(Error::InvalidAuthType(self.authType));
+        Err(Error::InvalidAuthType(self.authType))
     }
 
     pub fn to_blockstack(&self) -> Result<TransactionAuth, Error> {
@@ -219,30 +219,25 @@ pub struct StacksPayload {
 }
 
 impl StacksPayload {
-    fn to_blockstack(&self) -> Result<TransactionPayload, Error> {
-        let address = StacksAddress {
-            version: self.contractAddress.version,
-            bytes: Hash160::from_data(self.contractAddress.hash160.as_bytes()),
-        };
-
+    fn build_function_args(&self) -> Result<Vec<Value>, Error> {
         let mut function_args = Vec::with_capacity(self.functionArgs.len());
         for val in &self.functionArgs {
-            let value = match &val.arg_type {
-                &STANDARD_PRINCIPAL_CV => {
+            let value = match val.arg_type {
+                STANDARD_PRINCIPAL_CV => {
                     let principal = serde_json::from_value::<PrincipalArg>(val.arg_value.clone())?;
                     Value::from(PrincipalData::from(StandardPrincipalData(
                         principal.version,
                         Hash160::from_data(principal.hash160.as_bytes()).0,
                     )))
                 }
-                &UINT_CV => {
+                UINT_CV => {
                     let amount = val
                         .arg_value
                         .as_str()
                         .ok_or_else(|| Error::InvalidFunctionArg)?;
                     Value::UInt(amount.parse()?)
                 }
-                &STRING_ASCII_CV => {
+                STRING_ASCII_CV => {
                     let data = val
                         .arg_value
                         .as_str()
@@ -257,12 +252,25 @@ impl StacksPayload {
             };
             function_args.push(value);
         }
+        Ok(function_args)
+    }
+
+    fn to_blockstack(&self) -> Result<TransactionPayload, Error> {
+        let address = StacksAddress {
+            version: self.contractAddress.version,
+            bytes: Hash160::from_data(self.contractAddress.hash160.as_bytes()),
+        };
+        let contract_name = ContractName::try_from(self.contractName.content.clone())
+            .map_err(|_| Error::InvalidContractName(self.contractName.content.clone()))?;
+
+        let function_name = ClarityName::try_from(self.functionName.content.clone())
+            .map_err(|_| Error::InvalidFunctionName(self.functionName.content.clone()))?;
+        let function_args = self.build_function_args()?;
+
         Ok(TransactionPayload::ContractCall(TransactionContractCall {
             address,
-            contract_name: ContractName::try_from(self.contractName.content.clone())
-                .map_err(|_| Error::InvalidContractName(self.contractName.content.clone()))?,
-            function_name: ClarityName::try_from(self.functionName.content.clone())
-                .map_err(|_| Error::InvalidFunctionName(self.functionName.content.clone()))?,
+            contract_name,
+            function_name,
             function_args,
         }))
     }
