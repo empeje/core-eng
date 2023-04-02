@@ -3,9 +3,13 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use frost_signer::config::{Config, Error as ConfigError};
-use frost_signer::net::{Error as HttpNetError, Message, NetListen};
-use frost_signer::signing_round::{
-    DkgBegin, DkgPublicShare, MessageTypes, NonceRequest, NonceResponse, SignatureShareRequest,
+use frost_signer::{
+    net::{Error as HttpNetError, Message, NetListen},
+    signing_round::{
+        DkgBegin, DkgPublicShare, MessageTypes, NonceRequest, NonceResponse, Signable,
+        SignatureShareRequest,
+    },
+    util::{parse_public_key, parse_public_keys},
 };
 use hashbrown::HashSet;
 use tracing::{debug, info, warn};
@@ -14,7 +18,7 @@ use wtfrost::{
     common::{PolyCommitment, PublicNonce, Signature},
     compute,
     errors::AggregatorError,
-    v1, Point,
+    v1, Point, Scalar,
 };
 
 use serde::{Deserialize, Serialize};
@@ -45,10 +49,17 @@ pub struct Coordinator<Network: NetListen> {
     public_nonces: BTreeMap<u32, NonceResponse>,
     signature_shares: BTreeMap<u32, v1::SignatureShare>,
     aggregate_public_key: Point,
+    network_private_key: Scalar,
+    signer_public_keys: Vec<String>,
+    key_public_keys: Vec<String>,
+    coordinator_public_key: String,
 }
 
 impl<Network: NetListen> Coordinator<Network> {
     pub fn new(id: usize, dkg_id: u64, config: &Config, network: Network) -> Self {
+        let network_private_key = Scalar::try_from(config.network_private_key.as_str())
+            .expect("failed to parse network_private_key from config");
+
         Self {
             id: id as u32,
             current_dkg_id: dkg_id,
@@ -63,6 +74,10 @@ impl<Network: NetListen> Coordinator<Network> {
             public_nonces: Default::default(),
             aggregate_public_key: Point::default(),
             signature_shares: Default::default(),
+            network_private_key,
+            signer_public_keys: config.signer_public_keys.clone(),
+            key_public_keys: config.key_public_keys.clone(),
+            coordinator_public_key: config.coordinator_public_key.clone(),
         }
     }
 }
@@ -111,11 +126,13 @@ where
             "DKG Round #{}: Starting Public Share Distribution",
             self.current_dkg_id
         );
+        let dkg_begin = DkgBegin {
+            dkg_id: self.current_dkg_id,
+        };
+
         let dkg_begin_message = Message {
-            msg: MessageTypes::DkgBegin(DkgBegin {
-                dkg_id: self.current_dkg_id,
-            }),
-            sig: [0; 32],
+            sig: dkg_begin.sign(&self.network_private_key).expect(""),
+            msg: MessageTypes::DkgBegin(dkg_begin),
         };
 
         self.network.send_message(dkg_begin_message)?;
@@ -127,9 +144,12 @@ where
             "DKG Round #{}: Starting Private Share Distribution",
             self.current_dkg_id
         );
+        let dkg_begin = DkgBegin {
+            dkg_id: self.current_dkg_id,
+        };
         let dkg_private_begin_msg = Message {
-            msg: MessageTypes::DkgPrivateBegin,
-            sig: [0; 32],
+            sig: dkg_begin.sign(&self.network_private_key).expect(""),
+            msg: MessageTypes::DkgPrivateBegin(dkg_begin),
         };
 
         self.network.send_message(dkg_private_begin_msg)?;
@@ -139,13 +159,15 @@ where
     fn collect_nonces(&mut self) -> Result<(), Error> {
         self.public_nonces.clear();
 
+        let nonce_request = NonceRequest {
+            dkg_id: self.current_dkg_id,
+            sign_id: self.current_sign_id,
+            sign_nonce_id: self.current_sign_nonce_id,
+        };
+
         let nonce_request_message = Message {
-            msg: MessageTypes::NonceRequest(NonceRequest {
-                dkg_id: self.current_dkg_id,
-                sign_id: self.current_sign_id,
-                sign_nonce_id: self.current_sign_nonce_id,
-            }),
-            sig: [0; 32],
+            sig: nonce_request.sign(&self.network_private_key).expect(""),
+            msg: MessageTypes::NonceRequest(nonce_request),
         };
 
         debug!("dkg_id #{}. NonceRequest sent.", self.current_dkg_id);
@@ -197,16 +219,20 @@ where
         msg: &[u8],
     ) -> Result<(), Error> {
         for party_id in self.public_nonces.keys() {
+            let signature_share_request = SignatureShareRequest {
+                dkg_id: self.current_dkg_id,
+                sign_id: self.current_sign_id,
+                correlation_id: 0,
+                party_id: *party_id,
+                nonces: nonces.to_owned(),
+                message: msg.to_vec(),
+            };
+
             let signature_share_request_message = Message {
-                msg: MessageTypes::SignShareRequest(SignatureShareRequest {
-                    dkg_id: self.current_dkg_id,
-                    sign_id: self.current_sign_id,
-                    correlation_id: 0,
-                    party_id: *party_id,
-                    nonces: nonces.to_owned(),
-                    message: msg.to_vec(),
-                }),
-                sig: [0; 32],
+                sig: signature_share_request
+                    .sign(&self.network_private_key)
+                    .expect(""),
+                msg: MessageTypes::SignShareRequest(signature_share_request),
             };
 
             self.network.send_message(signature_share_request_message)?;
@@ -400,12 +426,56 @@ where
     }
 
     fn wait_for_next_message(&mut self) -> Result<Message, Error> {
+        let signer_public_keys = parse_public_keys(&self.key_public_keys);
+        let key_public_keys = parse_public_keys(&self.key_public_keys);
+        let coordinator_public_key = parse_public_key(&self.coordinator_public_key);
+
         let get_next_message = || {
             self.network.poll(self.id);
-            self.network
+            match self
+                .network
                 .next_message()
                 .ok_or_else(|| "No message yet".to_owned())
                 .map_err(backoff::Error::transient)
+            {
+                Ok(m) => {
+                    match &m.msg {
+                        MessageTypes::DkgBegin(msg) | MessageTypes::DkgPrivateBegin(msg) => {
+                            assert!(msg.verify(&m.sig, &coordinator_public_key))
+                        }
+                        MessageTypes::DkgEnd(msg) | MessageTypes::DkgPublicEnd(msg) => {
+                            assert!(msg.verify(&m.sig, &signer_public_keys[msg.signer_id - 1]))
+                        }
+                        MessageTypes::DkgPublicShare(msg) => {
+                            assert!(msg.verify(&m.sig, &key_public_keys[msg.party_id as usize]))
+                        }
+                        MessageTypes::DkgPrivateShares(msg) => {
+                            assert!(msg.verify(&m.sig, &key_public_keys[msg.key_id as usize]))
+                        }
+                        MessageTypes::DkgQuery(msg) => {
+                            assert!(msg.verify(&m.sig, &coordinator_public_key))
+                        }
+                        MessageTypes::DkgQueryResponse(msg) => {
+                            let key_id = msg.public_share.id.id.get_u32();
+                            assert!(msg.verify(&m.sig, &key_public_keys[key_id as usize - 1]));
+                        }
+                        MessageTypes::NonceRequest(msg) => {
+                            assert!(msg.verify(&m.sig, &coordinator_public_key))
+                        }
+                        MessageTypes::NonceResponse(msg) => {
+                            assert!(msg.verify(&m.sig, &key_public_keys[msg.party_id as usize]))
+                        }
+                        MessageTypes::SignShareRequest(msg) => {
+                            assert!(msg.verify(&m.sig, &coordinator_public_key))
+                        }
+                        MessageTypes::SignShareResponse(msg) => {
+                            assert!(msg.verify(&m.sig, &key_public_keys[msg.party_id as usize]))
+                        }
+                    }
+                    Ok(m)
+                }
+                Err(e) => Err(e),
+            }
         };
 
         let notify = |_err, dur| {
@@ -413,7 +483,8 @@ where
         };
 
         let backoff_timer = backoff::ExponentialBackoffBuilder::new()
-            .with_max_interval(Duration::from_secs(3))
+            .with_initial_interval(Duration::from_millis(2))
+            .with_max_interval(Duration::from_millis(128))
             .build();
         backoff::retry_notify(backoff_timer, get_next_message, notify).map_err(|_| Error::Timeout)
     }

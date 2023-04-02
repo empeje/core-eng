@@ -9,6 +9,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+p256k1 = { workspace = true }
 wtfrost = { workspace = true }
 backoff = { workspace = true }
 clap = { workspace = true }

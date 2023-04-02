@@ -2,9 +2,9 @@ use clap::Parser;
 use frost_signer::config::Config;
 use frost_signer::logging;
 use stacks_signer::cli::{Cli, Command};
+use stacks_signer::secp256k1::Secp256k1;
 use stacks_signer::signer::Signer;
 use tracing::info;
-use tracing::warn;
 
 fn main() {
     let cli = Cli::parse();
@@ -26,18 +26,26 @@ fn main() {
                     let mut signer = Signer::new(config, id);
                     info!("{} signer id #{}", stacks_signer::version(), id); // sign-on message
                     if let Err(e) = signer.start_p2p_sync() {
-                        warn!("An error occurred on the P2P Network: {}", e);
+                        panic!("An error occurred on the P2P Network: {}", e);
                     }
                 }
                 Err(e) => {
-                    warn!("An error occurred reading config file {}: {}", config, e);
+                    panic!("An error occurred reading config file {}: {}", config, e);
                 }
             }
         }
-        Command::Secp256k1(secp256k1) => {
+        Command::PrivateKey(secp256k1) => {
             if let Err(e) = secp256k1.generate_private_key() {
-                warn!("An error occurred generating private key: {}", e);
+                panic!("An error occurred generating private key: {}", e);
             }
         }
+        Command::PublicKey { config } => match Config::from_path(&config) {
+            Ok(config) => {
+                Secp256k1::generate_public_key(&config.network_private_key);
+            }
+            Err(e) => {
+                panic!("An error occurred reading config file {}: {}", config, e);
+            }
+        },
     };
 }

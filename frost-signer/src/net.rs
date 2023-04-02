@@ -7,7 +7,7 @@ use crate::signing_round;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
     pub msg: signing_round::MessageTypes,
-    pub sig: [u8; 32],
+    pub sig: Vec<u8>,
 }
 
 // Http listen/poll with queue (requires mutable access, is configured by passing in HttpNet)
@@ -26,11 +26,15 @@ impl HttpNetListen {
 #[derive(Clone)]
 pub struct HttpNet {
     pub http_relay_url: String,
+    connected: bool,
 }
 
 impl HttpNet {
     pub fn new(http_relay_url: String) -> Self {
-        HttpNet { http_relay_url }
+        HttpNet {
+            http_relay_url,
+            connected: true,
+        }
     }
 }
 
@@ -54,6 +58,7 @@ impl NetListen for HttpNetListen {
         debug!("poll {}", url);
         match ureq::get(&url).call() {
             Ok(response) => {
+                self.net.connected = true;
                 if response.status() == 200 {
                     match bincode::deserialize_from::<_, Message>(response.into_reader()) {
                         Ok(msg) => {
@@ -65,7 +70,10 @@ impl NetListen for HttpNetListen {
                 };
             }
             Err(e) => {
-                warn!("{} U: {}", e, url)
+                if self.net.connected {
+                    warn!("{} U: {}", e, url);
+                    self.net.connected = false;
+                }
             }
         };
     }
@@ -91,6 +99,9 @@ impl Net for HttpNet {
 
     fn send_message(&self, msg: Message) -> Result<(), Self::Error> {
         let req = ureq::post(&self.http_relay_url);
+
+        // sign message
+
         let bytes = bincode::serialize(&msg)?;
         let result = req.send_bytes(&bytes[..]);
 

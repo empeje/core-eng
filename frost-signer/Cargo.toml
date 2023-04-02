@@ -13,12 +13,13 @@ crate-type = ["lib"]   # The crate types to generate.
 [dependencies]
 bincode = { workspace = true }
 clap = { workspace = true }
+p256k1 = { workspace = true }
 wtfrost = { workspace = true }
 hashbrown = { workspace = true }
 itertools = { workspace = true }
 rand_core = { workspace = true }
 serde = { workspace = true }
-sha3 = { workspace = true }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }

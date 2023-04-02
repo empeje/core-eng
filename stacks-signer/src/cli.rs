@@ -27,5 +27,11 @@ pub enum Command {
         config: String,
     },
     /// Generate Secp256k1 Private Key
-    Secp256k1(Secp256k1),
+    PrivateKey(Secp256k1),
+    /// Generate Secp256k1 Public Key
+    PublicKey {
+        /// Config file path
+        #[arg(short, long)]
+        config: String,
+    },
 }

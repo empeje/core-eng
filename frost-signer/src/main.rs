@@ -13,7 +13,11 @@ fn main() {
     match Config::from_path(cli.config.clone()) {
         Ok(config) => {
             let mut signer = Signer::new(config, cli.id);
-            info!("{} signer id #{}", frost_signer::version(), signer.frost_id); // sign-on message
+            info!(
+                "{} signer id #{}",
+                frost_signer::version(),
+                signer.signer_id
+            ); // sign-on message
 
             //Start listening for p2p messages
             if let Err(e) = signer.start_p2p_sync() {

@@ -9,8 +9,11 @@ pub struct Config {
     pub total_signers: usize,
     pub total_keys: usize,
     pub keys_threshold: usize,
-    pub max_party_id: usize,
     pub frost_state_file: String,
+    pub network_private_key: String,
+    pub signer_public_keys: Vec<String>,
+    pub key_public_keys: Vec<String>,
+    pub coordinator_public_key: String,
 }
 
 #[derive(Parser)]
