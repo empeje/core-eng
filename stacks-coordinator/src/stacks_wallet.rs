@@ -7,9 +7,11 @@ use crate::{
     stacks_transaction::Error as StacksTransactionError,
 };
 use blockstack_lib::{
+    address::AddressHashMode,
     chainstate::stacks::{address::PoxAddress, StacksTransaction},
+    types::chainstate::{StacksAddress, StacksPublicKey},
     vm::{
-        types::{ASCIIData, PrincipalData, StandardPrincipalData},
+        types::{ASCIIData, StacksAddressExtensions},
         Value,
     },
 };
@@ -32,6 +34,9 @@ pub enum Error {
     ///An invalid transaction
     #[error("Invalid stacks transaction: {0}")]
     InvalidTransaction(#[from] StacksTransactionError),
+    ///An invalid transaction
+    #[error("Invalid Transaction: {0}")]
+    InvalidPubkey(String),
 }
 
 pub struct StacksWallet {
@@ -66,6 +71,7 @@ impl StacksWalletTrait for StacksWallet {
         // Build the function arguments
         let amount = Value::UInt(op.amount.into());
         let principal = Value::from(op.recipient.clone());
+        //Note that this tx_id is only used to print info in the contract call.
         let tx_id = Value::from(ASCIIData {
             data: op.txid.as_bytes().to_vec(),
         });
@@ -93,15 +99,21 @@ impl StacksWalletTrait for StacksWallet {
 
         // Build the function arguments
         let amount = Value::UInt(op.amount.into());
-        let stacks_wallet_address = op
-            .peg_wallet_address
-            .clone()
-            .try_into_stacks_address()
-            .ok_or_else(|| Error::InvalidAddress(op.peg_wallet_address.clone()))?;
-        let principal = Value::from(PrincipalData::from(StandardPrincipalData(
-            stacks_wallet_address.version,
-            stacks_wallet_address.bytes.0,
-        )));
+        // Retrieve the address from the Message Signature
+        let pub_key = StacksPublicKey::recover_to_pubkey(op.txid.as_bytes(), &op.signature)
+            .map_err(|e| Error::InvalidPubkey(e.to_string()))?;
+        let address = StacksAddress::from_public_keys(
+            0, //Defaulting to mainnet
+            &AddressHashMode::SerializeP2PKH,
+            1,
+            &vec![pub_key],
+        )
+        .ok_or(Error::InvalidPubkey(
+            "Failed to generate stacks address from public key".to_string(),
+        ))?;
+        let principal_data = address.to_account_principal();
+        let principal = Value::Principal(principal_data);
+        //Note that this tx_id is only used to print info inside the contract call.
         let tx_id = Value::from(ASCIIData {
             data: op.txid.to_bytes().to_vec(),
         });
