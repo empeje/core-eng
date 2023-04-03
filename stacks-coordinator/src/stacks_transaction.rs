@@ -10,8 +10,13 @@ use blockstack_lib::{
         TransactionPostConditionMode, TransactionPublicKeyEncoding, TransactionSpendingCondition,
         TransactionVersion as Version,
     },
+    net::Error as BlockstackNetError,
     types::chainstate::StacksAddress,
-    util::{hash::{Hash160, hex_bytes}, secp256k1::MessageSignature, HexError},
+    util::{
+        hash::{hex_bytes, Hash160},
+        secp256k1::MessageSignature,
+        HexError,
+    },
     vm::{
         types::{ASCIIData, PrincipalData, StandardPrincipalData, Value},
         ClarityName, ContractName,
@@ -49,7 +54,64 @@ pub enum Error {
     #[error("Invalid Post Condition Mode: {0}")]
     InvalidPostConditionMode(u8),
     #[error("Invalid Message Signature: {0}")]
-    InvalidMessageSignature(#[from] HexError)
+    InvalidMessageSignature(#[from] HexError),
+    #[error("Invalid Transaction: {0}")]
+    InvalidTransaction(#[from] BlockstackNetError),
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct SingleSig {
+    hashMode: u8,
+    signer: String,
+    nonce: String,
+    fee: String,
+    keyEncoding: u8,
+    signature: Signature,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Signature {
+    data: String,
+    #[serde(alias = "type")]
+    sig_type: u8,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct LengthPrefixedString {
+    #[serde(alias = "type")]
+    data_type: u8, //Always a length prefix string type
+    content: String,
+    lengthPrefixBytes: u8, //Always 1
+    maxLengthBytes: u8,    //Always 128
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct ContractAddress {
+    #[serde(alias = "type")]
+    contract_type: u8,
+    version: u8,
+    hash160: String,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct FunctionArg {
+    #[serde(alias = "type")]
+    arg_type: u8,
+    #[serde(alias = "address", alias = "data", alias = "value")]
+    arg_value: serde_json::Value,
+}
+
+#[allow(non_snake_case)]
+#[derive(Debug, Serialize, Deserialize)]
+struct PrincipalArg {
+    #[serde(alias = "type")]
+    address_type: u8,
+    version: u8,
+    hash160: String,
 }
 
 #[allow(non_snake_case)]
@@ -86,7 +148,7 @@ impl StacksTransaction {
                 return Err(Error::InvalidPostConditionMode(self.postConditionMode));
             }
         };
-        Ok(BlockstackTransaction {
+        let tx = BlockstackTransaction {
             version,
             chain_id: self.chainId,
             auth,
@@ -94,13 +156,15 @@ impl StacksTransaction {
             payload,
             post_condition_mode,
             post_conditions: vec![],
-        })
+        };
+        tx.verify()?;
+        Ok(tx)
     }
 }
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
-pub struct StacksAuth {
+struct StacksAuth {
     authType: u8,
     spendingCondition: serde_json::Value,
 }
@@ -151,68 +215,13 @@ impl StacksAuth {
     }
 }
 
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SingleSig {
-    pub hashMode: u8,
-    pub signer: String,
-    pub nonce: String,
-    pub fee: String,
-    pub keyEncoding: u8,
-    pub signature: Signature,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Signature {
-    data: String,
-    #[serde(alias = "type")]
-    sig_type: u8,
-}
+const UINT_CV: u8 = 1;
+const STANDARD_PRINCIPAL_CV: u8 = 5;
+const STRING_ASCII_CV: u8 = 13;
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
-pub struct LengthPrefixedString {
-    #[serde(alias = "type")]
-    data_type: u8, //Always a length prefix string type
-    content: String,
-    lengthPrefixBytes: u8, //Always 1
-    maxLengthBytes: u8,    //Always 128
-}
-
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ContractAddress {
-    #[serde(alias = "type")]
-    contract_type: u8,
-    version: u8,
-    hash160: String,
-}
-
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FunctionArg {
-    #[serde(alias = "type")]
-    arg_type: u8,
-    #[serde(alias = "address", alias = "data", alias = "value")]
-    arg_value: serde_json::Value,
-}
-
-#[allow(non_snake_case)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PrincipalArg {
-    #[serde(alias = "type")]
-    address_type: u8,
-    version: u8,
-    hash160: String,
-}
-
-pub const UINT_CV: u8 = 1;
-pub const STANDARD_PRINCIPAL_CV: u8 = 5;
-pub const STRING_ASCII_CV: u8 = 13;
-
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct StacksPayload {
+struct StacksPayload {
     #[serde(alias = "type")]
     message_type: u8, //Always a payload type
     payloadType: u8, //Always a contract call
