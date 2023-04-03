@@ -67,7 +67,7 @@ impl StacksWalletTrait for StacksWallet {
         let amount = Value::UInt(op.amount.into());
         let principal = Value::from(op.recipient.clone());
         let tx_id = Value::from(ASCIIData {
-            data: op.txid.to_bytes().to_vec(),
+            data: op.txid.as_bytes().to_vec(),
         });
         let function_args: Vec<Value> = vec![amount, principal, tx_id];
 

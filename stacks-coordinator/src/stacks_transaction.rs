@@ -11,7 +11,7 @@ use blockstack_lib::{
         TransactionVersion as Version,
     },
     types::chainstate::StacksAddress,
-    util::{hash::Hash160, secp256k1::MessageSignature},
+    util::{hash::{Hash160, hex_bytes}, secp256k1::MessageSignature, HexError},
     vm::{
         types::{ASCIIData, PrincipalData, StandardPrincipalData, Value},
         ClarityName, ContractName,
@@ -48,6 +48,8 @@ pub enum Error {
     InvalidFunctionArg,
     #[error("Invalid Post Condition Mode: {0}")]
     InvalidPostConditionMode(u8),
+    #[error("Invalid Message Signature: {0}")]
+    InvalidMessageSignature(#[from] HexError)
 }
 
 #[allow(non_snake_case)]
@@ -111,20 +113,22 @@ impl StacksAuth {
             .ok_or_else(|| Error::InvalidKeyEncoding(sig.keyEncoding))?;
         let hash_mode = SinglesigHashMode::from_u8(sig.hashMode)
             .ok_or_else(|| Error::InvalidHashMode(sig.hashMode))?;
-        let mut sig_buf = [0u8; 65];
-        let sig_bytes = sig.signature.data.as_bytes();
-        if sig_bytes.len() < 65 {
-            sig_buf.copy_from_slice(sig_bytes)
-        } else {
-            sig_buf.copy_from_slice(&sig_bytes[..65]);
-        }
+
+        let sig_hex_bytes = hex_bytes(sig.signature.data.as_str())?;
+        let mut sig_bytes = [0u8; 65];
+        sig_bytes.copy_from_slice(&sig_hex_bytes[..]);
+
+        let signer_hex_bytes = hex_bytes(sig.signer.as_str())?;
+        let mut signer_bytes = [0u8; 20];
+        signer_bytes.copy_from_slice(&signer_hex_bytes[..]);
+
         let sig = SinglesigSpendingCondition {
             hash_mode,
-            signer: Hash160::from_data(sig.signer.as_bytes()),
+            signer: Hash160(signer_bytes),
             nonce: sig.nonce.parse()?,
             tx_fee: sig.fee.parse()?,
             key_encoding,
-            signature: MessageSignature(sig_buf),
+            signature: MessageSignature(sig_bytes),
         };
         Ok(TransactionAuth::Standard(
             TransactionSpendingCondition::Singlesig(sig),
