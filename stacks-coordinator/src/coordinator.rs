@@ -3,6 +3,7 @@ use bitcoin::{
     SchnorrSighashType, XOnlyPublicKey,
 };
 
+use blockstack_lib::chainstate::stacks::TransactionVersion;
 use frost_coordinator::{coordinator::Error as FrostCoordinatorError, create_coordinator};
 use frost_signer::net::{Error as HttpNetError, HttpNetListen};
 use std::sync::mpsc;
@@ -18,7 +19,7 @@ use crate::peg_wallet::{
     StacksWallet as StacksWalletTrait, WrapPegWallet,
 };
 use crate::stacks_node::{self, Error as StacksNodeError};
-use crate::stacks_wallet::StacksWallet;
+use crate::stacks_wallet::{StacksWallet, MAINNET, TESTNET};
 // Traits in scope
 use crate::bitcoin_node::{BitcoinNode, BitcoinTransaction, LocalhostBitcoinNode};
 use crate::peg_queue::{
@@ -69,6 +70,8 @@ pub enum Error {
     UnexpectedSenderDisconnect(#[from] std::sync::mpsc::RecvError),
     #[error("Stacks Node Error: {0}")]
     StacksNodeError(#[from] StacksNodeError),
+    #[error("Invalid network specified in Config file. Must be one of 'testnet' or 'mainnet'")]
+    InvalidNetwork,
 }
 
 pub trait Coordinator: Sized {
@@ -79,7 +82,8 @@ pub trait Coordinator: Sized {
 
     // Required methods
     fn peg_queue(&self) -> &Self::PegQueue;
-    fn fee_wallet(&mut self) -> &mut Self::FeeWallet;
+    fn fee_wallet_mut(&mut self) -> &mut Self::FeeWallet;
+    fn fee_wallet(&self) -> &Self::FeeWallet;
     fn frost_coordinator(&self) -> &FrostCoordinator;
     fn frost_coordinator_mut(&mut self) -> &mut FrostCoordinator;
     fn stacks_node(&self) -> &Self::StacksNode;
@@ -123,13 +127,25 @@ pub trait Coordinator: Sized {
 // Private helper functions
 trait CoordinatorHelpers: Coordinator {
     fn peg_in(&mut self, op: stacks_node::PegInOp) -> Result<()> {
-        let tx = self.fee_wallet().stacks_mut().build_mint_transaction(&op)?;
+        let nonce = self
+            .stacks_node()
+            .next_nonce(self.fee_wallet().stacks().get_address())?;
+        let tx = self
+            .fee_wallet_mut()
+            .stacks_mut()
+            .build_mint_transaction(&op, nonce)?;
         self.stacks_node().broadcast_transaction(&tx)?;
         Ok(())
     }
 
     fn peg_out(&mut self, op: stacks_node::PegOutRequestOp) -> Result<()> {
-        let burn_tx = self.fee_wallet().stacks_mut().build_burn_transaction(&op)?;
+        let nonce = self
+            .stacks_node()
+            .next_nonce(self.fee_wallet().stacks().get_address())?;
+        let burn_tx = self
+            .fee_wallet_mut()
+            .stacks_mut()
+            .build_burn_transaction(&op, nonce)?;
         self.stacks_node().broadcast_transaction(&burn_tx)?;
 
         let fulfill_tx = self.btc_fulfill_peg_out(&op)?;
@@ -141,7 +157,7 @@ trait CoordinatorHelpers: Coordinator {
         &mut self,
         op: &stacks_node::PegOutRequestOp,
     ) -> Result<BitcoinTransaction> {
-        let mut fulfill_tx = self.fee_wallet().bitcoin_mut().fulfill_peg_out(op)?;
+        let mut fulfill_tx = self.fee_wallet_mut().bitcoin_mut().fulfill_peg_out(op)?;
         let pubkey = self.frost_coordinator().get_aggregate_public_key()?;
         let _xonly_pubkey =
             PublicKey::from_slice(&pubkey.x().to_bytes()).map_err(Error::BitcoinSecp256k1)?;
@@ -208,6 +224,16 @@ impl TryFrom<Config> for StacksCoordinator {
         config.start_block_height = config
             .start_block_height
             .or_else(|| local_stacks_node.burn_block_height().ok());
+        let version = match &config
+            .network
+            .clone()
+            .unwrap_or(MAINNET.to_string())
+            .to_ascii_lowercase()[..]
+        {
+            MAINNET => TransactionVersion::Mainnet,
+            TESTNET => TransactionVersion::Testnet,
+            _ => return Err(Error::InvalidNetwork),
+        };
         Ok(Self {
             local_peg_queue: SqlitePegQueue::try_from(&config)?,
             local_stacks_node,
@@ -217,7 +243,8 @@ impl TryFrom<Config> for StacksCoordinator {
                 stacks_wallet: StacksWallet::new(
                     ".",
                     config.sbtc_contract,
-                    config.stacks_private_key,
+                    &config.stacks_private_key,
+                    version,
                 )?,
             },
         })
@@ -234,8 +261,12 @@ impl Coordinator for StacksCoordinator {
         &self.local_peg_queue
     }
 
-    fn fee_wallet(&mut self) -> &mut Self::FeeWallet {
+    fn fee_wallet_mut(&mut self) -> &mut Self::FeeWallet {
         &mut self.local_fee_wallet
+    }
+
+    fn fee_wallet(&self) -> &Self::FeeWallet {
+        &self.local_fee_wallet
     }
 
     fn frost_coordinator(&self) -> &FrostCoordinator {
@@ -277,6 +308,7 @@ mod tests {
             signer_config_path: "conf/signer.toml".to_string(),
             start_block_height: None,
             rusqlite_path: None,
+            network: None,
         };
         // todo: make StacksCoordinator with mock FrostCoordinator to locally generate PublicKey and Signature for unit test
         let mut sc = StacksCoordinator::try_from(config).unwrap();

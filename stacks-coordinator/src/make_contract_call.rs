@@ -16,7 +16,7 @@ pub type PostCondition = serde_json::Value;
 // number | string | bigint | Uint8Array | BN;
 pub type IntegerType = String;
 
-pub type StacksNetworkNameOrStacksNetwork = serde_json::Value;
+pub type StacksNetworkNameOrStacksNetwork = String;
 
 pub type BooleanOrClarityAbi = serde_json::Value;
 
@@ -45,8 +45,7 @@ pub struct SignedContractCallOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feeEstimateApiUrl: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nonce: Option<IntegerType>,
+    pub nonce: IntegerType,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network: Option<StacksNetworkNameOrStacksNetwork>,
@@ -69,6 +68,7 @@ pub struct SignedContractCallOptions {
 }
 
 impl SignedContractCallOptions {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         contract_address: impl Into<String>,
         contract_name: impl Into<String>,
@@ -76,6 +76,8 @@ impl SignedContractCallOptions {
         function_args: &[Value],
         anchor_mode: AnchorMode,
         sender_key: impl Into<String>,
+        nonce: u64,
+        network: impl Into<String>,
     ) -> Self {
         Self {
             contractAddress: contract_address.into(),
@@ -87,13 +89,13 @@ impl SignedContractCallOptions {
                 .collect(),
             fee: None,
             feeEstimateApiUrl: None,
-            nonce: None,
-            network: None,
+            nonce: nonce.to_string(),
+            network: Some(network.into()),
             anchorMode: anchor_mode,
-            postConditionMode: Some(TransactionPostConditionMode::Deny as u8),
-            postConditions: None,
-            validateWithAbi: None,
-            sponsored: None,
+            postConditionMode: Some(TransactionPostConditionMode::Allow as u8),
+            postConditions: Some(Vec::<serde_json::Value>::new().into()),
+            validateWithAbi: Some(false.into()),
+            sponsored: Some(false),
             senderKey: sender_key.into(),
         }
     }

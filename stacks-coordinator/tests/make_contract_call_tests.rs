@@ -26,6 +26,8 @@ fn make_contract_call_test() {
         &function_args,
         ANY,
         "0001020304050607080910111213141516171819202122232425262728293031",
+        0,
+        "mainnet",
     )
     .with_fee(0);
     {

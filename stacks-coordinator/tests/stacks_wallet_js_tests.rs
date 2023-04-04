@@ -2,15 +2,14 @@ use blockstack_lib::{
     burnchains::Txid,
     chainstate::{
         burn::operations::{PegInOp, PegOutRequestOp},
-        stacks::address::PoxAddress,
+        stacks::{address::PoxAddress, TransactionVersion},
     },
     types::chainstate::{BurnchainHeaderHash, StacksAddress},
     util::{hash::Hash160, secp256k1::MessageSignature},
     vm::types::{PrincipalData, StandardPrincipalData},
 };
 use stacks_coordinator::{
-    peg_wallet::{PegWalletAddress, StacksWallet as StacksWalletTrait},
-    stacks_wallet::StacksWallet,
+    peg_wallet::StacksWallet as StacksWalletTrait, stacks_wallet::StacksWallet,
 };
 
 fn pox_address() -> PoxAddress {
@@ -21,7 +20,8 @@ fn stacks_wallet() -> StacksWallet {
     StacksWallet::new(
         "..",
         "SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sbtc-alpha".to_string(),
-        "0001020304050607080910111213141516171819202122232425262728293031".to_string(),
+        &"0001020304050607080910111213141516171819202122232425262728293031".to_string(),
+        TransactionVersion::Mainnet,
     )
     .unwrap()
 }
@@ -48,7 +48,7 @@ fn stacks_mint_test() {
         burn_header_hash: BurnchainHeaderHash([0; 32]),
     };
     let mut wallet = stacks_wallet();
-    let tx = wallet.build_mint_transaction(&p).unwrap();
+    let tx = wallet.build_mint_transaction(&p, 0).unwrap();
     tx.verify().unwrap();
 }
 
@@ -68,18 +68,16 @@ fn stacks_burn_test() {
         burn_header_hash: BurnchainHeaderHash([0; 32]),
     };
     let mut wallet = stacks_wallet();
-    let tx = wallet.build_burn_transaction(&p).unwrap();
+    let tx = wallet.build_burn_transaction(&p, 0).unwrap();
     tx.verify().unwrap();
 }
 
 #[ignore]
 #[test]
 fn stacks_build_set_address_transaction() {
-    let mut address = [0u8; 32];
-    address.copy_from_slice(b"0123456789abcdefghijklmnopkrstuv");
-
-    let p = PegWalletAddress(address);
     let mut wallet = stacks_wallet();
-    let tx = wallet.build_set_address_transaction(p).unwrap();
+    let tx = wallet
+        .build_set_address_transaction(wallet.get_address().clone(), 0)
+        .unwrap();
     tx.verify().unwrap();
 }

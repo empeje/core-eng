@@ -74,7 +74,7 @@ impl StacksNode for NodeClient {
             .ok_or_else(|| StacksNodeError::InvalidJsonEntry(entry.to_string()))
     }
 
-    fn next_nonce(&self, addr: StacksAddress) -> Result<u64, StacksNodeError> {
+    fn next_nonce(&self, addr: &StacksAddress) -> Result<u64, StacksNodeError> {
         let url = self.build_url(&format!("/v2/accounts/{}", addr.to_b58()));
         let entry = "nonce";
         self.client.get(url).send()?.json::<Value>().map(|json| {

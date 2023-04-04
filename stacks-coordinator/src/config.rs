@@ -22,6 +22,8 @@ pub struct Config {
     pub signer_config_path: String,
     pub start_block_height: Option<u64>,
     pub rusqlite_path: Option<String>,
+    /// The network version we are using ('mainnet' or 'testnet'). Default: 'mainnet'
+    pub network: Option<String>,
 }
 
 impl Config {
