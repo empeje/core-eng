@@ -1,5 +1,7 @@
 # P-02 Commit reveal peg operations
 
+Time lock optional.
+
 ## Open questions (WIP)
 
 ### Do we need Taproot to encode this? In the original proposal, the format is just using P2SH.
