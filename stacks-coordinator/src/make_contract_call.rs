@@ -4,10 +4,7 @@ use crate::stacks_transaction::StacksTransaction;
 use serde::Serialize;
 use yarpc::{dispatch_command::DispatchCommand, js::Js, rpc::Rpc};
 
-use blockstack_lib::{
-    chainstate::stacks::TransactionPostConditionMode,
-    vm::{database::ClaritySerializable, Value},
-};
+use blockstack_lib::vm::{database::ClaritySerializable, Value};
 
 pub type ClarityValue = String;
 
@@ -45,7 +42,8 @@ pub struct SignedContractCallOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feeEstimateApiUrl: Option<String>,
 
-    pub nonce: IntegerType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<IntegerType>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network: Option<StacksNetworkNameOrStacksNetwork>,
@@ -68,7 +66,6 @@ pub struct SignedContractCallOptions {
 }
 
 impl SignedContractCallOptions {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         contract_address: impl Into<String>,
         contract_name: impl Into<String>,
@@ -76,8 +73,6 @@ impl SignedContractCallOptions {
         function_args: &[Value],
         anchor_mode: AnchorMode,
         sender_key: impl Into<String>,
-        nonce: u64,
-        network: impl Into<String>,
     ) -> Self {
         Self {
             contractAddress: contract_address.into(),
@@ -89,19 +84,29 @@ impl SignedContractCallOptions {
                 .collect(),
             fee: None,
             feeEstimateApiUrl: None,
-            nonce: nonce.to_string(),
-            network: Some(network.into()),
+            nonce: None,
+            network: None,
             anchorMode: anchor_mode,
-            postConditionMode: Some(TransactionPostConditionMode::Allow as u8),
-            postConditions: Some(Vec::<serde_json::Value>::new().into()),
-            validateWithAbi: Some(false.into()),
-            sponsored: Some(false),
+            postConditionMode: None,
+            postConditions: None,
+            validateWithAbi: None,
+            sponsored: None,
             senderKey: sender_key.into(),
         }
     }
 
     pub fn with_fee(mut self, fee: u128) -> Self {
         self.fee = Some(fee.to_string());
+        self
+    }
+
+    pub fn with_nonce(mut self, nonce: u64) -> Self {
+        self.nonce = Some(nonce.to_string());
+        self
+    }
+
+    pub fn with_network(mut self, network: impl Into<String>) -> Self {
+        self.network = Some(network.into());
         self
     }
 }
