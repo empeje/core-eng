@@ -1,0 +1,111 @@
+# sBTC action plan
+This document aims to gather a high-level view of the projects we're working on to deliver sBTC
+on a best-effort basis.
+
+# Projects in motion
+
+```mermaid
+gantt
+    dateFormat  YYYY-MM-DD
+    title sBTC Action Plan
+
+    section P-01
+        Software deployment & delivery     :a1, 2023-04-03, 28d
+
+    section P-02
+        Network message signature format              :b1, 2023-04-03, 3d
+        Coordinator & signer uses signature format    :b2, after b1, 7d
+        sBTC contract interaction                     :b3, after b2, 7d
+        Encrypted local store for private keys        :b4, after  b2, 7d
+
+    section P-03
+        Commit-reveal peg operations in stacks-node     :c1, 2023-04-03, 14d
+        Frost adaptation                                :c2, after c1, 7d
+        Transaction construction and aggregation        :c3, after c1, 7d
+
+    section P-04
+        Support hand-off in stacks node          :d1, after c1, 14d
+        Integrate hand-off in sBTC coordinator   :d2, after d1, 14d
+
+    section P-05
+        Investigate current state     :e1, 2023-04-03, 7d
+        Finalize database schema      :e2, after e1, 7d
+        Implement prototype           :e3, after e2, 7d
+        Prototype testing             :e4, after e3, 2d
+        User interface                :e5, after e3, 7d
+        Beta version launch           :e6, after e5, 3d
+        Feedback incorporation        :e7, after e6, 14d
+        Launch 1.0                    :e8, after e7, 7d
+
+    section P-08
+        Risk identification      :f1, 2023-04-03, 14d
+
+    section P-10
+        Requirement identification                      :h1, 2023-04-03, 4d
+        Deploy working 2.1 testnet                      :h2, after h1, 3d
+        Upgrade testnet to 3.0 consensus rules          :h3, after h2, 7d
+        Set up globally accessible url for the testnet  :h4, after h2, 1d
+        Test mining                                     :h5, after h4, 7d
+
+    section P-24
+        Implementation          :i1, 2023-04-03, 7d
+        Integration testing     :i2, after i1, 7d
+
+```
+
+
+## P-01 Software deployment & delivery
+Owner: Sergey Shandar
+
+DoD: We have clear and easy-to-use infrastructure that allows anyone to easily participate in sBTC as a signer.
+
+Project Issue: [CoreEng228](https://github.com/Trust-Machines/core-eng/issues/228)
+
+## P-02 Sign and validate FROST shares
+Owner: Joey Yandle
+
+DoD: Our FROST implementation only accepts signed messages.
+
+Project Issue: [CoreEng229](https://github.com/Trust-Machines/core-eng/issues/229)
+
+## P-03 Commit-reveal peg operations
+Owner: Mårten Blankfors
+
+DoD: sBTC burnchain operations support a format usable from custodian wallets.
+
+Project Issue: [CoreEng230](https://github.com/Trust-Machines/core-eng/issues/230)
+
+## P-04 Peg-handoff system
+Owner: Mårten Blankfors
+
+DoD: We have a secure mechanism to hand over custody of the sBTC peg wallet.
+
+Project Issue: [CoreEng231](https://github.com/Trust-Machines/core-eng/issues/231)
+
+## P-05 Stacker DB
+Owner: Stjepan Golemac
+
+DoD: Stacks nodes support hosting auxiliary smart contract data which can be used to support stacker communication in sBTC.
+
+Project Issue: [CoreEng232](https://github.com/Trust-Machines/core-eng/issues/232)
+
+## P-08 Risk identification for mini sBTC
+Owner: José Orlicki
+
+DoD: Risks revolving mini sBTC have been identified and addressed.
+
+Project Issue: [CoreEng233](https://github.com/Trust-Machines/core-eng/issues/233)
+
+## P-10 Testnet network
+Owner: Sayak Chatterjee
+
+DoD: There is a private testnet network that runs the Nakamoto consensus and is equipped with testnet sBTC mechanisms.
+
+Project Issue: [CoreEng234](https://github.com/Trust-Machines/core-eng/issues/234)
+
+## P-24 Alpha coordinator
+Owner: Jacinta Ferrant
+
+DoD: Stacks signers can coordinate to fulfill their responsibilities as needed for sBTC alpha.
+
+Project Issue: [CoreEng235](https://github.com/Trust-Machines/core-eng/issues/235)
