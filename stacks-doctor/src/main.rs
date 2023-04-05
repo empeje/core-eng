@@ -1,6 +1,6 @@
 use clap::Parser;
 use cli::Commands;
-use commands::{analyze_logs, burns, show_env};
+use commands::{analyze_logs, burns, reorgs, show_env};
 
 use crate::cli::Args;
 
@@ -19,9 +19,17 @@ fn main() {
                 Ok(())
             }
         }
-        Commands::Burns(burns_args) => {
+        Commands::Burns(inner_args) => {
             if let Some(db_dir) = args.db_dir {
-                burns(args.network, &db_dir, burns_args)
+                burns(args.network, &db_dir, inner_args)
+            } else {
+                eprintln!("Database directory path needs to be passed");
+                Ok(())
+            }
+        }
+        Commands::Reorgs(inner_args) => {
+            if let Some(db_dir) = args.db_dir {
+                reorgs(args.network, &db_dir, inner_args)
             } else {
                 eprintln!("Database directory path needs to be passed");
                 Ok(())

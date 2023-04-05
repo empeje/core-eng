@@ -32,7 +32,7 @@ impl FromStr for Network {
 }
 
 #[derive(Parser, Clone, Debug)]
-pub struct BurnsArgs {
+pub struct BlocksArgs {
     // How many recent blocks to take into account
     #[arg(short, long, default_value_t = 1000)]
     pub blocks: u64,
@@ -43,7 +43,9 @@ pub enum Commands {
     /// Analyze miner
     Analyze,
     /// Print burn fee information
-    Burns(BurnsArgs),
+    Burns(BlocksArgs),
+    /// Print reorg information
+    Reorgs(BlocksArgs),
     /// Print related environment variables that are set
     Env,
 }

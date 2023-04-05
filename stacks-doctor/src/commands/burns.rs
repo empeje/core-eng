@@ -3,9 +3,9 @@ use std::path::Path;
 use anyhow::{anyhow, Context, Result};
 use rusqlite::OpenFlags;
 
-use crate::cli::{BurnsArgs, Network};
+use crate::cli::{BlocksArgs, Network};
 
-pub fn burns(network: Network, db_dir: &Path, burns_args: &BurnsArgs) -> Result<()> {
+pub fn burns(network: Network, db_dir: &Path, args: &BlocksArgs) -> Result<()> {
     let mode = match network {
         Network::Mainnet => "mainnet/",
         Network::Testnet => "xenon/",
@@ -40,7 +40,7 @@ pub fn burns(network: Network, db_dir: &Path, burns_args: &BurnsArgs) -> Result<
     }
 
     let last_block = height_fee_pairs.first().unwrap().0;
-    let cutoff_block = last_block - burns_args.blocks;
+    let cutoff_block = last_block - args.blocks;
 
     let mut burn_fees: Vec<u64> = height_fee_pairs
         .into_iter()
@@ -52,7 +52,7 @@ pub fn burns(network: Network, db_dir: &Path, burns_args: &BurnsArgs) -> Result<
 
     println!(
         "Burn fee stats for last {} blocks: min={} max={} mean={} avg={}",
-        burns_args.blocks,
+        args.blocks,
         burn_fees.first().unwrap(),
         burn_fees.last().unwrap(),
         burn_fees[burn_fees.len() / 2],
