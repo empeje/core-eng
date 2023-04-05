@@ -1,5 +1,18 @@
 # P-02 Commit reveal peg operations
 
+## Background
+The original sBTC design from [SIP-021]()
+require users to be able to construct transactions with multiple outputs,
+embedding data on bitcoin using an OP_RETURN output. However, such transactions cannot be created
+from many wallets, and custodian services.
+
+Due to this observation, [FriendsFerdinand](https://github.com/FriendsFerdinand) created an alternate
+[proposal](https://docs.google.com/document/d/1EnYEk6gA2w6VfRpT8CcK8mghZRMUEjn2OhHwzdK_9x0) examplifying
+how to embed data on-chain using P2SH redeem scripts, and the `OP_DROP` operation.
+
+Based on this porposal, [Jude](https://github.com/jcnelson) described an alternate peg-in flow in
+the mini [sBTC proposal](https://docs.google.com/document/d/1EnYEk6gA2w6VfRpT8CcK8mghZRMUEjn2OhHwzdK_9x0).
+
 Time lock optional.
 
 ## Open questions (WIP)
