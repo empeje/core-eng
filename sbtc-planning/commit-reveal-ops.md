@@ -1,14 +1,26 @@
 # P-02 Commit reveal peg operations
 
 ## Open questions (WIP)
-Do we need Taproot to encode this? In the original proposal, the format is just using P2SH.
+
+### Do we need Taproot to encode this? In the original proposal, the format is just using P2SH.
 
 Interpreted answer: We need a taproot output because we send the funds to the stackers. (I.e. they need to use FROST).
 
-What prevents the stackers from just claiming the funds for themselves?
+### What prevents the stackers from just claiming the funds for themselves?
 
 Possible solutions:
 - Stacks nodes monitor these payloads, and enforce recovery mode in these situations.
+
+- Reporting mechanism. Is it easy to prove misconduct by signers?
+
+### How is the transaction data/payload picked up by stacks nodes?
+
+Option 1: The signers spend the OP_DROP input by creating an OP_RETURN output with the same data. Problem: This results in wasted bytes on bitcoin.
+
+Option 2: Stacks-node is modified to support reading data from P2TR redeem scripts beyond just OP_RETURNs.
+
+Option 3: Allow optional reading of P2TR scripts. There must be an OP_RETURN signaling the opcode. I.e. for peg-in read the OP_RETURN to parse the opcode and magic bytes.
+If the data field is empty, go through the inputs in order to find a P2TR redeem script with the data.
 
 ## Background
 
