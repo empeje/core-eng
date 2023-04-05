@@ -1,5 +1,15 @@
 # P-02 Commit reveal peg operations
 
+## Open questions (WIP)
+Do we need Taproot to encode this? In the original proposal, the format is just using P2SH.
+
+Interpreted answer: We need a taproot output because we send the funds to the stackers. (I.e. they need to use FROST).
+
+What prevents the stackers from just claiming the funds for themselves?
+
+Possible solutions:
+- Stacks nodes monitor these payloads, and enforce recovery mode in these situations.
+
 ## Background
 
 ## Description from mini sBTC
