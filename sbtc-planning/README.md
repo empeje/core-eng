@@ -48,8 +48,12 @@ gantt
         Test mining                                     :h5, after h4, 7d
 
     section P-24
-        Implementation          :i1, 2023-04-03, 7d
-        Integration testing     :i2, after i1, 7d
+        Build Stacks Transactions              :i1, 2023-04-03, 7d
+        Broadcast Stacks Transactions          :i2, after i1, 1d
+        Build Bitcoin Transactions             :i3, 2023-04-06, 1d
+        Broadcast Bitcoin Transactions         :i4, after i3, 1d
+        Retrieve Config Options from Contract  :i5, 2023-04-06, 2d
+        Integration testing     :i6, after i2, 7d
 
 ```
 
