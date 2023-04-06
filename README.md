@@ -1,4 +1,9 @@
-# core-eng
+# Welcome to the Trust Machines Core Eng Team's Mono Repo
+
+We use this repository to rapidly incubate and iterate on new ideas related Bitcoin or Bitcoin Layers such as Stacks.
+The primary focus of the team for 2023 is sBTC.
+
+What is sBTC? https://github.com/stacks-network/stacks-blockchain/wiki/sBTC-Eng-Wiki
 
 [![rust](https://github.com/Trust-Machines/core-eng/actions/workflows/rust.yml/badge.svg)](https://github.com/Trust-Machines/core-eng/actions/workflows/rust.yml)
 [![CodeFactor](https://www.codefactor.io/repository/github/trust-machines/core-eng/badge)](https://www.codefactor.io/repository/github/trust-machines/core-eng)
