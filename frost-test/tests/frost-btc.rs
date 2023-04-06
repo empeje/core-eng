@@ -7,7 +7,7 @@ use bitcoin::{
     XOnlyPublicKey,
 };
 use frost_test::bitcoind;
-use frost_test::bitcoind::{bitcoind_mine, bitcoind_rpc};
+use frost_test::bitcoind::{bitcoind_mine, bitcoind_rpc, gen_config};
 use rand_core::OsRng;
 use wtfrost::common::PolyCommitment;
 use wtfrost::{
@@ -132,7 +132,7 @@ fn frost_btc() {
         bitcoin::PublicKey::from_slice(&group_public_key.compress().as_bytes()).unwrap();
 
     // bitcoind regtest
-    let _bitcoind_pid = bitcoind::bitcoind_setup();
+    let _bitcoind_pid = bitcoind::bitcoind_setup(gen_config());
 
     // create user keys
     let user_secret_key = bitcoin::secp256k1::SecretKey::new(&mut rand::thread_rng());
@@ -152,7 +152,10 @@ fn frost_btc() {
     );
 
     // mine block to create btc
-    let result = bitcoind_mine(&user_public_key.serialize().try_into().unwrap());
+    let result = bitcoind_mine(
+        &user_public_key.serialize().try_into().unwrap(),
+        gen_config(),
+    );
     let block_id = result
         .as_array()
         .unwrap()
@@ -161,15 +164,16 @@ fn frost_btc() {
         .as_str()
         .unwrap();
     println!("mined block_id {:?}", block_id);
-    let result = bitcoind_rpc("getblock", [block_id]);
+    let result = bitcoind_rpc("getblock", [block_id], gen_config());
     let block = result.as_object().unwrap();
     let txid = block.get("tx").unwrap().get(0).unwrap().as_str().unwrap();
     println!("mined txid {:?}", txid);
-    let result = bitcoind_rpc("getrawtransaction", (txid, false, block_id));
+    let result = bitcoind_rpc("getrawtransaction", (txid, false, block_id), gen_config());
     let user_funding_transaction_bytes_hex = result.as_str().unwrap();
     let _ = bitcoind_rpc(
         "decoderawtransaction",
         [&user_funding_transaction_bytes_hex],
+        gen_config(),
     );
 
     // Peg in to stx address
@@ -239,9 +243,9 @@ fn frost_btc() {
             .collect::<Vec<_>>()
     );
     let peg_in_bytes_hex = hex::encode(&peg_in_bytes);
-    let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex]);
+    let _ = bitcoind_rpc("decoderawtransaction", [&peg_in_bytes_hex], gen_config());
     println!("peg-in tx bytes {}", peg_in_bytes_hex);
-    let peg_in_result_value = bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex]);
+    let peg_in_result_value = bitcoind_rpc("sendrawtransaction", [&peg_in_bytes_hex], gen_config());
     assert!(peg_in_result_value.is_string(), "{}", peg_in_result_value);
 
     let peg_in_utxo = &peg_in.output[1];
@@ -301,7 +305,8 @@ fn frost_btc() {
 
     println!("peg-out tx bytes {}", &peg_out_bytes_hex);
 
-    let peg_out_result_value = bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex]);
+    let peg_out_result_value =
+        bitcoind_rpc("sendrawtransaction", [&peg_out_bytes_hex], gen_config());
     assert!(peg_out_result_value.is_string(), "{}", peg_out_result_value);
 }
 
