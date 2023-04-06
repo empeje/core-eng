@@ -67,74 +67,6 @@ pub struct StacksWallet {
 }
 
 impl StacksWallet {
-    fn build_transaction_payload(
-        &self,
-        function_name: impl Into<String>,
-        function_args: Vec<Value>,
-    ) -> Result<TransactionPayload, Error> {
-        let contract_name = ContractName::try_from(self.contract_name.clone())?;
-        let function_name = ClarityName::try_from(function_name.into())?;
-        let payload = TransactionContractCall {
-            address: self.contract_address,
-            contract_name,
-            function_name,
-            function_args,
-        };
-        Ok(payload.into())
-    }
-
-    fn build_transaction_unsigned(
-        &self,
-        function_name: impl Into<String>,
-        function_args: Vec<Value>,
-        nonce: u64,
-    ) -> Result<StacksTransaction, Error> {
-        // First build the payload from the provided function and its arguments
-        let payload = self.build_transaction_payload(function_name, function_args)?;
-
-        // Next build the authorization from the provided sender key
-        let public_key = StacksPublicKey::from_private(&self.sender_key);
-        let mut spending_condition = TransactionSpendingCondition::new_singlesig_p2pkh(public_key)
-            .ok_or_else(|| {
-                Error::InvalidPublicKey(
-                    "Failed to create single sig transaction spending condition.".to_string(),
-                )
-            })?;
-        spending_condition.set_nonce(nonce);
-        spending_condition.set_tx_fee(0);
-        let auth = TransactionAuth::Standard(spending_condition);
-
-        // Viola! We have an unsigned transaction
-        let mut tx = StacksTransaction::new(self.version, auth, payload);
-        let chain_id = if self.version == TransactionVersion::Testnet {
-            CHAIN_ID_TESTNET
-        } else {
-            CHAIN_ID_MAINNET
-        };
-        tx.chain_id = chain_id;
-        tx.anchor_mode = TransactionAnchorMode::Any;
-
-        Ok(tx)
-    }
-
-    fn build_transaction_signed(
-        &self,
-        function_name: impl Into<String>,
-        function_args: Vec<Value>,
-        nonce: u64,
-    ) -> Result<StacksTransaction, Error> {
-        // First build an unsigned transaction
-        let unsigned_tx = self.build_transaction_unsigned(function_name, function_args, nonce)?;
-
-        // Do the signing
-        let mut tx_signer = StacksTransactionSigner::new(&unsigned_tx);
-        tx_signer.sign_origin(&self.sender_key)?;
-
-        // Retrieve the signed transaction from the signer
-        let signed_tx = tx_signer.get_tx().ok_or(Error::SigningError)?;
-        Ok(signed_tx)
-    }
-
     pub fn new(
         contract: String,
         sender_key: &str,
@@ -175,6 +107,74 @@ impl StacksWallet {
             version,
             address,
         })
+    }
+
+    fn build_transaction_signed(
+        &self,
+        function_name: impl Into<String>,
+        function_args: Vec<Value>,
+        nonce: u64,
+    ) -> Result<StacksTransaction, Error> {
+        // First build an unsigned transaction
+        let unsigned_tx = self.build_transaction_unsigned(function_name, function_args, nonce)?;
+
+        // Do the signing
+        let mut tx_signer = StacksTransactionSigner::new(&unsigned_tx);
+        tx_signer.sign_origin(&self.sender_key)?;
+
+        // Retrieve the signed transaction from the signer
+        let signed_tx = tx_signer.get_tx().ok_or(Error::SigningError)?;
+        Ok(signed_tx)
+    }
+
+    fn build_transaction_unsigned(
+        &self,
+        function_name: impl Into<String>,
+        function_args: Vec<Value>,
+        nonce: u64,
+    ) -> Result<StacksTransaction, Error> {
+        // First build the payload from the provided function and its arguments
+        let payload = self.build_transaction_payload(function_name, function_args)?;
+
+        // Next build the authorization from the provided sender key
+        let public_key = StacksPublicKey::from_private(&self.sender_key);
+        let mut spending_condition = TransactionSpendingCondition::new_singlesig_p2pkh(public_key)
+            .ok_or_else(|| {
+                Error::InvalidPublicKey(
+                    "Failed to create single sig transaction spending condition.".to_string(),
+                )
+            })?;
+        spending_condition.set_nonce(nonce);
+        spending_condition.set_tx_fee(0);
+        let auth = TransactionAuth::Standard(spending_condition);
+
+        // Viola! We have an unsigned transaction
+        let mut tx = StacksTransaction::new(self.version, auth, payload);
+        let chain_id = if self.version == TransactionVersion::Testnet {
+            CHAIN_ID_TESTNET
+        } else {
+            CHAIN_ID_MAINNET
+        };
+        tx.chain_id = chain_id;
+        tx.anchor_mode = TransactionAnchorMode::Any;
+
+        Ok(tx)
+    }
+
+    fn build_transaction_payload(
+        &self,
+        function_name: impl Into<String>,
+        function_args: Vec<Value>,
+    ) -> Result<TransactionPayload, Error> {
+        let contract_name = ContractName::try_from(self.contract_name.clone())?;
+        let function_name = ClarityName::try_from(function_name.into())?;
+        let payload = TransactionContractCall {
+            address: self.contract_address,
+            contract_name,
+            function_name,
+            function_args,
+        };
+        Ok(payload.into())
     }
 }
 
@@ -301,23 +301,6 @@ mod tests {
 
     #[test]
     fn stacks_burn_test() {
-        // Pulled from testnet (Need valid tx id and signature to build function args)
-        // {
-        //     "peg_out_request": [
-        //       {
-        //         "amount": 2918928493838336000,
-        //         "recipient": "tb1pmmkznvm0pq5unp6geuwryu2f0m8xr6d229yzg2erx78nnk0ms48sk9s6q7",
-        //         "signature": "003c293a89d9ebde9d32d20704a6e18ee38b3fa22444fd44bfcf27259bf0669dc40e4d55e148dc17b8fe3a21333b9593fafc68946c5a255da75d720743e0756a14",
-        //         "peg_wallet_address": "tb1qp8r7ln235zx6nd8rsdzkgkrxc238p6eecys2m9",
-        //         "fulfillment_fee": 1998900,
-        //         "memo": "00",
-        //         "txid": "947385b78087c66c4b93cfe2c0939678d36df954cc72354805f9f8d5da04cfc1",
-        //         "vtxindex": 15,
-        //         "block_height": 2425663,
-        //         "burn_header_hash": "00000000000018eb8c1c7d4137b3de6a8544c7fa96f3cd037a58c4c5544e0544"
-        //       }
-        //     ]
-        //   }
         let tx_id =
             hex_bytes("947385b78087c66c4b93cfe2c0939678d36df954cc72354805f9f8d5da04cfc1").unwrap();
         let mut txid_bytes = [0u8; 32];
