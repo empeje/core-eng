@@ -13,13 +13,13 @@ use tracing::info;
 use wtfrost::{bip340::SchnorrProof, common::Signature};
 
 use crate::bitcoin_wallet::BitcoinWallet;
-use crate::config::{Config, Error as ConfigError};
+use crate::config::{Config, Error as ConfigError, Network};
 use crate::peg_wallet::{
     BitcoinWallet as BitcoinWalletTrait, Error as PegWalletError, PegWallet,
     StacksWallet as StacksWalletTrait, WrapPegWallet,
 };
 use crate::stacks_node::{self, Error as StacksNodeError};
-use crate::stacks_wallet::{StacksWallet, MAINNET, TESTNET};
+use crate::stacks_wallet::StacksWallet;
 // Traits in scope
 use crate::bitcoin_node::{BitcoinNode, BitcoinTransaction, LocalhostBitcoinNode};
 use crate::peg_queue::{
@@ -224,15 +224,9 @@ impl TryFrom<Config> for StacksCoordinator {
         config.start_block_height = config
             .start_block_height
             .or_else(|| local_stacks_node.burn_block_height().ok());
-        let version = match &config
-            .network
-            .clone()
-            .unwrap_or(MAINNET.to_string())
-            .to_ascii_lowercase()[..]
-        {
-            MAINNET => TransactionVersion::Mainnet,
-            TESTNET => TransactionVersion::Testnet,
-            _ => return Err(Error::InvalidNetwork),
+        let version = match config.network.as_ref().unwrap_or(&Network::Mainnet) {
+            Network::Mainnet => TransactionVersion::Mainnet,
+            Network::Testnet => TransactionVersion::Testnet,
         };
         Ok(Self {
             local_peg_queue: SqlitePegQueue::try_from(&config)?,

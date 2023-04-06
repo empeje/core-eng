@@ -13,6 +13,13 @@ pub enum Error {
 }
 
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Network {
+    Mainnet,
+    Testnet,
+}
+
+#[derive(serde::Deserialize)]
 pub struct Config {
     pub sbtc_contract: ContractIdentifier,
     pub stacks_private_key: StacksPrivateKey,
@@ -23,7 +30,7 @@ pub struct Config {
     pub start_block_height: Option<u64>,
     pub rusqlite_path: Option<String>,
     /// The network version we are using ('mainnet' or 'testnet'). Default: 'mainnet'
-    pub network: Option<String>,
+    pub network: Option<Network>,
 }
 
 impl Config {

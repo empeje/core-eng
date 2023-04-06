@@ -27,9 +27,6 @@ use blockstack_lib::{
     },
 };
 
-pub const MAINNET: &str = "mainnet";
-pub const TESTNET: &str = "testnet";
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("type conversion error from blockstack::bitcoin to bitcoin:: {0}")]
