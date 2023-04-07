@@ -27,7 +27,7 @@ pub fn gen_config() -> Config {
 pub fn bitcoind_rpc(
     method: &str,
     params: impl ureq::serde::Serialize,
-    config: Config,
+    config: &Config,
 ) -> serde_json::Value {
     let rpc = ureq::json!({"jsonrpc": "1.0", "id": "tst", "method": method, "params": params});
     match ureq::post(get_bitcoin_url(config).as_str()).send_json(&rpc) {
@@ -48,7 +48,7 @@ pub fn bitcoind_rpc(
     }
 }
 
-pub fn bitcoind_setup(config: Config) -> BitcoinPid {
+pub fn bitcoind_setup(config: &Config) -> BitcoinPid {
     let bitcoind_child = Command::new("bitcoind")
         .arg("-regtest")
         .arg("-rpcuser=abcd")
@@ -63,7 +63,7 @@ pub fn bitcoind_setup(config: Config) -> BitcoinPid {
         stop_pid(bitcoind_pid)
     })
     .expect("Error setting Ctrl-C handler");
-    match connectivity_check() {
+    match connectivity_check(config) {
         Err(e) => {
             panic!("no bitcoind available! {e}");
         }
@@ -77,10 +77,10 @@ pub fn bitcoind_setup(config: Config) -> BitcoinPid {
     }
 }
 
-pub fn connectivity_check() -> Result<f32, String> {
+pub fn connectivity_check(config: &Config) -> Result<f32, String> {
     let now = std::time::SystemTime::now();
     for _tries in 1..120 {
-        let uptime = bitcoind_rpc("uptime", (), gen_config());
+        let uptime = bitcoind_rpc("uptime", (), config);
         if uptime.is_number() {
             return Ok(now.elapsed().unwrap().as_secs_f32());
         } else {
@@ -90,15 +90,17 @@ pub fn connectivity_check() -> Result<f32, String> {
     Err("connection timeout".to_string())
 }
 
-fn get_bitcoin_url(config: Config) -> String {
+fn get_bitcoin_url(config: &Config) -> String {
     format!("{}:{}", BITCOIND_URL, config.port)
 }
 
 fn find_port() -> Option<u16> {
-    (18443..MAX_PORT).find(|port| port_is_available(*port))
+    (18443..MAX_PORT).find(|port| {
+        port_is_available(*port) || connectivity_check(&Config { port: *port }).is_ok()
+    })
 }
 
-pub fn bitcoind_mine(public_key_bytes: &[u8; 33], config: Config) -> Value {
+pub fn bitcoind_mine(public_key_bytes: &[u8; 33], config: &Config) -> Value {
     let public_key = bitcoin::PublicKey::from_slice(public_key_bytes).unwrap();
     let address = bitcoin::Address::p2wpkh(&public_key, bitcoin::Network::Regtest).unwrap();
     bitcoind_rpc("generatetoaddress", (128, address.to_string()), config)
