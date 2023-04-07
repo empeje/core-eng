@@ -40,7 +40,7 @@ jobs:
     - name: Download & install deno
       if: ${{matrix.os == 'buildjet-4vcpu-ubuntu-2204-arm'}}
       run: |
-        curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.8.3
+        curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.32.3
         echo "$HOME/.deno/bin" >> $GITHUB_PATH
     - uses: actions/checkout@v3
     # Install a specific version of Bitcoin
