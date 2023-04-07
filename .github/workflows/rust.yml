@@ -33,9 +33,10 @@ jobs:
         type: ['', '--release']
     runs-on: ${{matrix.os}}
     steps:
-    - uses: denoland/setup-deno@v1
+    - uses: empeje/setup-deno@v1
       with:
         deno-version: v1.*
+        override-arch: arm64
     - uses: actions/checkout@v3
     # Install a specific version of Bitcoin
     - run: ./.install/bitcoin.sh
