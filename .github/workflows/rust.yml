@@ -38,6 +38,7 @@ jobs:
       with:
         deno-version: v1.*
     - name: Download & install deno
+      if: ${{matrix.os == 'buildjet-4vcpu-ubuntu-2204-arm'}}
       run: |
         curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.8.3
         echo "$HOME/.deno/bin" >> $GITHUB_PATH
