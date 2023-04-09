@@ -25,7 +25,7 @@ jobs:
         path: Cargo.lock
 
   test:
-#    needs: build
+    needs: build
     strategy:
       matrix:
         # can't run on `windows-latests`
