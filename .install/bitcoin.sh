@@ -3,7 +3,7 @@ then
     # URL to Bitcoin v22.0
     curl -o bitcoin.rb https://raw.githubusercontent.com/Homebrew/homebrew-core/fa6b4765d81016166f6de2bdad96cfe914c1439f/Formula/bitcoin.rb
     brew install ./bitcoin.rb
-elif [[ $(uname -m) == 'arm' ]]
+elif [[ $(uname -m) == 'arm' || $(uname -m) == 'aarch64'  || $(uname -m) == 'arm64']]
 then
     # URL to Bitcoin v22.0
     curl -o bitcoin-22.0-arm-linux-gnueabihf.tar.gz https://bitcoincore.org/bin/bitcoin-core-22.0/bitcoin-22.0-arm-linux-gnueabihf.tar.gz
