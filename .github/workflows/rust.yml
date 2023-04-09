@@ -39,8 +39,9 @@ jobs:
         deno-version: v1.*
     - name: Download & install deno
       if: ${{matrix.os == 'buildjet-4vcpu-ubuntu-2204-arm'}}
+      # use deno-arm from https://github.com/LukeChannings/deno-arm64
       run: |
-        curl -fsSL https://deno.land/x/install/install.sh | sh -s v1.32.3
+        curl -s https://gist.githubusercontent.com/LukeChannings/09d53f5c364391042186518c8598b85e/raw/ac8cd8c675b985edd4b3e16df63ffef14d1f0e24/deno_install.sh | sh
         echo "$HOME/.deno/bin" >> $GITHUB_PATH
     - uses: actions/checkout@v3
     # Install a specific version of Bitcoin
