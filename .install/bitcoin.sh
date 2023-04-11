@@ -1,20 +1,20 @@
 val_of_platform() {
   case $1 in
         'darwin'*)
-            echo 'x86_64-apple-darwin'
-            ;;
+          echo 'x86_64-apple-darwin'
+          ;;
         'x86_64'*)
           echo 'x86_64-linux-gnu'
           ;;
         'arm'*)
-            echo 'arm-linux-gnueabihf'
-            ;;
+          echo 'arm-linux-gnueabihf'
+          ;;
         'aarch64'*)
-            echo 'aarch64-linux-gnu'
-            ;;
+          echo 'aarch64-linux-gnu'
+          ;;
         *)
-            echo 'unknown'
-            ;;
+          echo 'unknown'
+          ;;
     esac
 }
 platform=$(val_of_platform $(uname -m))
