@@ -62,7 +62,7 @@ mod tests {
     use crate::stacks_node::PegOutRequestOp;
 
     #[test]
-    fn fufill_peg_out() {
+    fn fulfill_peg_out() {
         let wallet = BitcoinWallet {};
         let recipient = PoxAddress::Addr20(true, PoxAddressType20::P2WPKH, [0x01; 20]);
         let peg_wallet_address = PoxAddress::Addr20(true, PoxAddressType20::P2WPKH, [0x01; 20]);

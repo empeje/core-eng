@@ -8,7 +8,7 @@ use frost_signer::net::{Error as HttpNetError, HttpNetListen};
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::{thread, time};
-use tracing::info;
+use tracing::debug;
 use wtfrost::{bip340::SchnorrProof, common::Signature};
 
 use crate::bitcoin_wallet::BitcoinWallet;
@@ -20,7 +20,9 @@ use crate::peg_wallet::{
 use crate::stacks_node::{self, Error as StacksNodeError};
 use crate::stacks_wallet::StacksWallet;
 // Traits in scope
-use crate::bitcoin_node::{BitcoinNode, BitcoinTransaction, LocalhostBitcoinNode};
+use crate::bitcoin_node::{
+    BitcoinNode, BitcoinTransaction, Error as BitcoinNodeError, LocalhostBitcoinNode,
+};
 use crate::peg_queue::{
     Error as PegQueueError, PegQueue, SbtcOp, SqlitePegQueue, SqlitePegQueueError,
 };
@@ -69,6 +71,8 @@ pub enum Error {
     UnexpectedSenderDisconnect(#[from] std::sync::mpsc::RecvError),
     #[error("Stacks Node Error: {0}")]
     StacksNodeError(#[from] StacksNodeError),
+    #[error("Bitcoin Node Error: {0}")]
+    BitcoinNodeError(#[from] BitcoinNodeError),
 }
 
 pub trait Coordinator: Sized {
@@ -129,12 +133,12 @@ trait CoordinatorHelpers: Coordinator {
     }
 
     fn peg_out(&mut self, op: stacks_node::PegOutRequestOp) -> Result<()> {
-        let _stacks = self.fee_wallet().stacks_mut();
-        let _burn_tx = self.fee_wallet().stacks_mut().build_burn_transaction(&op)?;
+        //let _stacks = self.fee_wallet().stacks_mut();
+        //let _burn_tx = self.fee_wallet().stacks_mut().build_burn_transaction(&op)?;
         //self.stacks_node().broadcast_transaction(&burn_tx);
 
         let fulfill_tx = self.btc_fulfill_peg_out(&op)?;
-        self.bitcoin_node().broadcast_transaction(&fulfill_tx);
+        self.bitcoin_node().broadcast_transaction(&fulfill_tx)?;
         Ok(())
     }
 
@@ -143,9 +147,12 @@ trait CoordinatorHelpers: Coordinator {
         op: &stacks_node::PegOutRequestOp,
     ) -> Result<BitcoinTransaction> {
         let mut fulfill_tx = self.fee_wallet().bitcoin_mut().fulfill_peg_out(op)?;
+
+        // Sanity check
         let pubkey = self.frost_coordinator().get_aggregate_public_key()?;
         let _xonly_pubkey =
             PublicKey::from_slice(&pubkey.x().to_bytes()).map_err(Error::BitcoinSecp256k1)?;
+
         let mut comp = bitcoin::util::sighash::SighashCache::new(&fulfill_tx);
         let taproot_sighash = comp.taproot_signature_hash(
             1,
@@ -154,12 +161,11 @@ trait CoordinatorHelpers: Coordinator {
             None,
             SchnorrSighashType::All,
         )?;
-
         let (_frost_sig, schnorr_proof) = self
             .frost_coordinator_mut()
             .sign_message(&taproot_sighash)?;
 
-        info!(
+        debug!(
             "Fulfill Tx {:?} SchnorrProof ({},{})",
             &fulfill_tx, schnorr_proof.r, schnorr_proof.s
         );
@@ -170,7 +176,7 @@ trait CoordinatorHelpers: Coordinator {
         ]
         .concat();
         let finalized_b58 = bitcoin::util::base58::encode_slice(&finalized);
-        info!("CALC SIG ({}) {}", finalized.len(), finalized_b58);
+        debug!("CALC SIG ({}) {}", finalized.len(), finalized_b58);
         fulfill_tx.input[0].witness.push(finalized);
         Ok(fulfill_tx)
     }
@@ -187,6 +193,7 @@ pub struct StacksCoordinator {
     frost_coordinator: FrostCoordinator,
     local_peg_queue: SqlitePegQueue,
     local_stacks_node: NodeClient,
+    local_bitcoin_node: LocalhostBitcoinNode,
     pub local_fee_wallet: WrapPegWallet,
 }
 
@@ -205,6 +212,7 @@ impl TryFrom<Config> for StacksCoordinator {
     type Error = Error;
     fn try_from(mut config: Config) -> Result<Self> {
         let local_stacks_node = NodeClient::new(&config.stacks_node_rpc_url);
+        let local_bitcoin_node = LocalhostBitcoinNode::new(config.bitcoin_node_rpc_url.clone());
         // If a user has not specified a start block height, begin from the current burn block height by default
         config.start_block_height = config
             .start_block_height
@@ -212,6 +220,7 @@ impl TryFrom<Config> for StacksCoordinator {
         Ok(Self {
             local_peg_queue: SqlitePegQueue::try_from(&config)?,
             local_stacks_node,
+            local_bitcoin_node,
             frost_coordinator: create_coordinator(config.signer_config_path)?,
             local_fee_wallet: WrapPegWallet {
                 bitcoin_wallet: BitcoinWallet {},
@@ -252,7 +261,7 @@ impl Coordinator for StacksCoordinator {
     }
 
     fn bitcoin_node(&self) -> &Self::BitcoinNode {
-        todo!()
+        &self.local_bitcoin_node
     }
 }
 
